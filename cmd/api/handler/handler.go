@@ -50,6 +50,13 @@ func (h *HandlerClip) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(b) == 0 {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "empty body",
+		})
+		return
+	}
+
 	clipboard := model.Clipboard{
 		Id:   uuid.NewString(),
 		Text: string(b),
@@ -107,7 +114,6 @@ func (h *HandlerClip) GetById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJson(w, http.StatusOK, clipboard)
-
 }
 
 func (h *HandlerClip) Update(w http.ResponseWriter, r *http.Request) {
@@ -116,6 +122,13 @@ func (h *HandlerClip) Update(w http.ResponseWriter, r *http.Request) {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error":  "failed to read body",
 			"reason": err.Error(),
+		})
+		return
+	}
+
+	if len(b) == 0 {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "empty body",
 		})
 		return
 	}
@@ -143,7 +156,6 @@ func (h *HandlerClip) Update(w http.ResponseWriter, r *http.Request) {
 		"sucess": fmt.Sprintf("update to id: %s", id),
 		"reason": string(b),
 	})
-
 }
 
 func (h *HandlerClip) Delete(w http.ResponseWriter, r *http.Request) {

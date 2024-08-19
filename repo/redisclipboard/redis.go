@@ -35,13 +35,9 @@ func (r *RepoRedis) Create(ctx context.Context, clip model.Clipboard) error {
 }
 
 func (r *RepoRedis) GetAll(ctx context.Context) ([]model.Clipboard, error) {
-	keyClipboards, err := r.rd.Keys(ctx, "*").Result()
+	keyClipboards, err := r.rd.Keys(ctx, "clipboard:*").Result()
 	if err != nil {
 		return []model.Clipboard{}, fmt.Errorf("keys redis err: %w", err)
-	}
-
-	if len(keyClipboards) == 0 {
-		return []model.Clipboard{}, fmt.Errorf("no data in redis")
 	}
 
 	clipboards := []model.Clipboard{}
@@ -109,7 +105,6 @@ func (r *RepoRedis) Update(ctx context.Context, id string, newdata string) error
 }
 
 func (r *RepoRedis) Delete(ctx context.Context, id string) error {
-
 	err := r.rd.Del(ctx, keyRedisClipboard(id)).Err()
 	if err != nil {
 		return fmt.Errorf("del redis err: %w", err)
