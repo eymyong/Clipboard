@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -53,8 +54,8 @@ func (h *HandlerClip) Create(w http.ResponseWriter, r *http.Request) {
 		Id:   uuid.NewString(),
 		Text: string(b),
 	}
-
-	err = h.repo.Create(nil, clipboard)
+	ctx := context.Background()
+	err = h.repo.Create(ctx, clipboard)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to create clipboard",
@@ -70,7 +71,8 @@ func (h *HandlerClip) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HandlerClip) GetAll(w http.ResponseWriter, r *http.Request) {
-	clipboards, err := h.repo.GetAll(nil)
+	ctx := context.Background()
+	clipboards, err := h.repo.GetAll(ctx)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to get all todos",
@@ -84,8 +86,8 @@ func (h *HandlerClip) GetAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HandlerClip) GetById(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)        //
-	id := vars["clipboard-id"] //
+	vars := mux.Vars(r)
+	id := vars["clipboard-id"]
 	if id == "" {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error": "missing id",
@@ -93,8 +95,8 @@ func (h *HandlerClip) GetById(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-
-	clipboard, err := h.repo.GetById(nil, id)
+	ctx := context.Background()
+	clipboard, err := h.repo.GetById(ctx, id)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  fmt.Sprintf("failed to get todo %s", id),
@@ -106,4 +108,64 @@ func (h *HandlerClip) GetById(w http.ResponseWriter, r *http.Request) {
 
 	sendJson(w, http.StatusOK, clipboard)
 
+}
+
+func (h *HandlerClip) Update(w http.ResponseWriter, r *http.Request) {
+	b, err := readBody(r)
+	if err != nil {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error":  "failed to read body",
+			"reason": err.Error(),
+		})
+		return
+	}
+
+	vars := mux.Vars(r)
+	id := vars["clipboard-id"]
+	if id == "" {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "missing id",
+		})
+		return
+	}
+
+	ctx := context.Background()
+	err = h.repo.Update(ctx, id, string(b))
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":  "failed to update",
+			"reason": err.Error(),
+		})
+		return
+	}
+
+	sendJson(w, http.StatusOK, map[string]interface{}{
+		"sucess": fmt.Sprintf("update to id: %s", id),
+		"reason": string(b),
+	})
+
+}
+
+func (h *HandlerClip) Delete(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["clipboard-id"]
+	if id == "" {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "missing id",
+		})
+		return
+	}
+	ctx := context.Background()
+	err := h.repo.Delete(ctx, id)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":  "failed to delete",
+			"reason": err.Error(),
+		})
+		return
+	}
+
+	sendJson(w, http.StatusOK, map[string]interface{}{
+		"sucess": fmt.Sprintf("delete to id: %s", id),
+	})
 }

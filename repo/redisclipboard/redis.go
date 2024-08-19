@@ -40,10 +40,13 @@ func (r *RepoRedis) GetAll(ctx context.Context) ([]model.Clipboard, error) {
 		return []model.Clipboard{}, fmt.Errorf("keys redis err: %w", err)
 	}
 
-	clipboards := []model.Clipboard{}
+	if len(keyClipboards) == 0 {
+		return []model.Clipboard{}, fmt.Errorf("no data in redis")
+	}
 
+	clipboards := []model.Clipboard{}
 	for _, v := range keyClipboards {
-		data, err := r.rd.HGetAll(ctx, keyRedisClipboard(v)).Result()
+		data, err := r.rd.HGetAll(ctx, v).Result()
 		if err != nil {
 			return []model.Clipboard{}, fmt.Errorf("hgetall redis err: %w", err)
 		}
@@ -55,7 +58,6 @@ func (r *RepoRedis) GetAll(ctx context.Context) ([]model.Clipboard, error) {
 				clipboard.Id = v
 			case "text":
 				clipboard.Text = v
-			default:
 			}
 		}
 		clipboards = append(clipboards, clipboard)
@@ -70,6 +72,10 @@ func (r *RepoRedis) GetById(ctx context.Context, id string) (model.Clipboard, er
 		return model.Clipboard{}, fmt.Errorf("hgetall redis err: %w", err)
 	}
 
+	if len(data) == 0 {
+		return model.Clipboard{}, fmt.Errorf("no data in redis")
+	}
+
 	clipboard := model.Clipboard{}
 	for k, v := range data {
 		switch k {
@@ -77,9 +83,58 @@ func (r *RepoRedis) GetById(ctx context.Context, id string) (model.Clipboard, er
 			clipboard.Id = v
 		case "text":
 			clipboard.Text = v
-		default:
 		}
 	}
 
 	return clipboard, nil
+}
+
+func (r *RepoRedis) Update(ctx context.Context, id string, newdata string) error {
+	keyRedis, err := r.rd.Keys(ctx, "*").Result()
+	if err != nil {
+		return fmt.Errorf("hset redis err: %w", err)
+	}
+
+	var checkKey bool
+	for _, v := range keyRedis {
+		if v == keyRedisClipboard(id) {
+			checkKey = true
+		}
+	}
+
+	if checkKey == false {
+		return fmt.Errorf("missing id")
+	}
+
+	err = r.rd.HSet(ctx, keyRedisClipboard(id), "text", newdata).Err()
+	if err != nil {
+		return fmt.Errorf("hset redis err: %w", err)
+	}
+
+	return nil
+}
+
+func (r *RepoRedis) Delete(ctx context.Context, id string) error {
+	keyRedis, err := r.rd.Keys(ctx, "*").Result()
+	if err != nil {
+		return fmt.Errorf("hset redis err: %w", err)
+	}
+
+	var checkKey bool
+	for _, v := range keyRedis {
+		if v == keyRedisClipboard(id) {
+			checkKey = true
+		}
+	}
+
+	if checkKey == false {
+		return fmt.Errorf("missing id")
+	}
+
+	err = r.rd.Del(ctx, keyRedisClipboard(id)).Err()
+	if err != nil {
+		return fmt.Errorf("del redis err: %w", err)
+	}
+
+	return nil
 }

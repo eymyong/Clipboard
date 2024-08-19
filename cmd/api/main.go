@@ -13,9 +13,11 @@ func main() {
 	h := handler.New(repo)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/create", h.Create).Methods(http.MethodGet)
-	r.HandleFunc("/getAll", h.GetAll).Methods(http.MethodGet)
+	r.HandleFunc("/create", h.Create).Methods(http.MethodPost)
+	r.HandleFunc("/get-a", h.GetAll).Methods(http.MethodGet)
 	r.HandleFunc("/getById/{clipboard-id}", h.GetById).Methods(http.MethodGet)
+	r.HandleFunc("/update/{clipboard-id}", h.Update).Methods(http.MethodPatch)
+	r.HandleFunc("/delete/{clipboard-id}", h.Delete).Methods(http.MethodDelete)
 
 	http.ListenAndServe(":8000", r)
 
