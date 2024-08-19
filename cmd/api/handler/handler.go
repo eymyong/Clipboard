@@ -22,13 +22,13 @@ func New(repo repo.Repository) *HandlerClip {
 	return &HandlerClip{repo: repo}
 }
 
-func sendJson(w http.ResponseWriter, status int, data interface{}) { //
-	w.Header().Set("Content-Type", "application/json") // toi kumnood papet kormoon wa pen what? ex: json
+func sendJson(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
 }
 
-func readBody(r *http.Request) ([]byte, error) { //
+func readBody(r *http.Request) ([]byte, error) {
 	defer r.Body.Close()
 
 	buf := bytes.NewBuffer(nil)
@@ -85,7 +85,6 @@ func (h *HandlerClip) GetAll(w http.ResponseWriter, r *http.Request) {
 			"error":  "failed to get all todos",
 			"reason": err.Error(),
 		})
-
 		return
 	}
 
@@ -99,7 +98,6 @@ func (h *HandlerClip) GetById(w http.ResponseWriter, r *http.Request) {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error": "missing id",
 		})
-
 		return
 	}
 	ctx := context.Background()
@@ -109,7 +107,6 @@ func (h *HandlerClip) GetById(w http.ResponseWriter, r *http.Request) {
 			"error":  fmt.Sprintf("failed to get todo %s", id),
 			"reason": err.Error(),
 		})
-
 		return
 	}
 

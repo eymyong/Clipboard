@@ -1,1 +1,1 @@
-DELETE http://localhost:8000/delete/abc HTTP/1.1
+DELETE http://localhost:8000/delete/af4e6727-608c-483e-a7ef-db575028969d HTTP/1.1
