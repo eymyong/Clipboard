@@ -91,13 +91,13 @@ func (r *RepoRedis) GetById(ctx context.Context, id string) (model.Clipboard, er
 
 func (r *RepoRedis) Update(ctx context.Context, id string, newdata string) error {
 	key := keyRedisClipboard(id)
-	keysRedis, err := r.rd.Keys(ctx, key).Result()
+	c, err := r.rd.Exists(ctx, key).Result()
 	if err != nil {
-		return fmt.Errorf("keys redis err: %w", err)
+		return fmt.Errorf("redis exists err: %w", err)
 	}
 
-	if len(keysRedis) != 1 {
-		return fmt.Errorf("unexpected length of redis keys %s: %d", key, len(keysRedis))
+	if c != 1 {
+		return fmt.Errorf("unexpected length of redis keys %s: %d", key, c)
 	}
 
 	err = r.rd.HSet(ctx, key, "text", newdata).Err()

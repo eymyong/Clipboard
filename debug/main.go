@@ -2,18 +2,23 @@ package main
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/eymyong/drop/model"
-	"github.com/eymyong/drop/repo/redisclipboard"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
 
-	// rd := redis.NewClient(&redis.Options{
-	// 	Addr: "127.0.0.1:6379",
-	// })
+	rd := redis.NewClient(&redis.Options{
+		Addr: "127.0.0.1:6379",
+	})
 
-	// ctx := context.Background()
+	ctx := context.Background()
+	err := rd.Exists(ctx, "kkk").Err()
+	fmt.Println(err)
+
+	i, err := rd.Exists(ctx, "kkk").Result()
+	fmt.Println("i", i, "err", err)
 
 	// // err := rd.HSet(ctx, "test:1", "id", "2", "data", "two", "status", "DONE").Err()
 	// // if err != nil {
@@ -31,17 +36,17 @@ func main() {
 	// }
 
 	// fmt.Println(data)
-	data := model.Clipboard{
-		Id:   "111",
-		Text: "one",
-	}
+	// data := model.Clipboard{
+	// 	Id:   "111",
+	// 	Text: "one",
+	// }
 
-	r := redisclipboard.New("127.0.0.1:6379")
-	ctx := context.Background()
+	// r := redisclipboard.New("127.0.0.1:6379")
+	// ctx := context.Background()
 
-	err := r.Create(ctx, data)
-	if err != nil {
-		panic(err)
-	}
+	// err := r.Create(ctx, data)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 }
