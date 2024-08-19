@@ -90,23 +90,17 @@ func (r *RepoRedis) GetById(ctx context.Context, id string) (model.Clipboard, er
 }
 
 func (r *RepoRedis) Update(ctx context.Context, id string, newdata string) error {
-	keyRedis, err := r.rd.Keys(ctx, "*").Result()
+	key := keyRedisClipboard(id)
+	keysRedis, err := r.rd.Keys(ctx, key).Result()
 	if err != nil {
-		return fmt.Errorf("hset redis err: %w", err)
+		return fmt.Errorf("keys redis err: %w", err)
 	}
 
-	var checkKey bool
-	for _, v := range keyRedis {
-		if v == keyRedisClipboard(id) {
-			checkKey = true
-		}
+	if len(keysRedis) != 1 {
+		return fmt.Errorf("unexpected length of redis keys %s: %d", key, len(keysRedis))
 	}
 
-	if checkKey == false {
-		return fmt.Errorf("missing id")
-	}
-
-	err = r.rd.HSet(ctx, keyRedisClipboard(id), "text", newdata).Err()
+	err = r.rd.HSet(ctx, key, "text", newdata).Err()
 	if err != nil {
 		return fmt.Errorf("hset redis err: %w", err)
 	}
@@ -115,23 +109,8 @@ func (r *RepoRedis) Update(ctx context.Context, id string, newdata string) error
 }
 
 func (r *RepoRedis) Delete(ctx context.Context, id string) error {
-	keyRedis, err := r.rd.Keys(ctx, "*").Result()
-	if err != nil {
-		return fmt.Errorf("hset redis err: %w", err)
-	}
 
-	var checkKey bool
-	for _, v := range keyRedis {
-		if v == keyRedisClipboard(id) {
-			checkKey = true
-		}
-	}
-
-	if checkKey == false {
-		return fmt.Errorf("missing id")
-	}
-
-	err = r.rd.Del(ctx, keyRedisClipboard(id)).Err()
+	err := r.rd.Del(ctx, keyRedisClipboard(id)).Err()
 	if err != nil {
 		return fmt.Errorf("del redis err: %w", err)
 	}
