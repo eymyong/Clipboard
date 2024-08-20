@@ -1,1 +1,1 @@
-DELETE http://localhost:8000/delete/af4e6727-608c-483e-a7ef-db575028969d HTTP/1.1
+DELETE http://localhost:8000/delete/6f3671c6-3ad9-44bb-94c5-76e5e16f4d34 HTTP/1.1

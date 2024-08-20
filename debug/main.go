@@ -13,17 +13,30 @@ func main() {
 		Addr: "127.0.0.1:6379",
 	})
 
+	// ctx := context.Background()
+	// err := rd.Exists(ctx, "kkk").Err()
+	// fmt.Println(err)
+
+	// i, err := rd.Exists(ctx, "kkk").Result()
+	// fmt.Println("i", i, "err", err)
+
 	ctx := context.Background()
-	err := rd.Exists(ctx, "kkk").Err()
-	fmt.Println(err)
+	err := rd.HSet(ctx, "test:1", "id", "1").Err()
+	if err != nil {
+		panic(err)
+	}
 
-	i, err := rd.Exists(ctx, "kkk").Result()
-	fmt.Println("i", i, "err", err)
+	err = rd.HSet(ctx, "test:1", "text", "one").Err()
+	if err != nil {
+		panic(err)
+	}
 
-	// // err := rd.HSet(ctx, "test:1", "id", "2", "data", "two", "status", "DONE").Err()
-	// // if err != nil {
-	// // 	panic(err)
-	// // }
+	data, err := rd.HGetAll(ctx, "test:1").Result()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(data)
 
 	// err := rd.HSet(ctx, "test:1", "Id", 1, "text", "one").Err()
 	// if err != nil {
