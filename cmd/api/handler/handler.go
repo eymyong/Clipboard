@@ -15,10 +15,10 @@ import (
 )
 
 type HandlerClip struct {
-	repo repo.Repository
+	repo repo.RepositoryClipboard
 }
 
-func New(repo repo.Repository) *HandlerClip {
+func New(repo repo.RepositoryClipboard) *HandlerClip {
 	return &HandlerClip{repo: repo}
 }
 

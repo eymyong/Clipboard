@@ -14,10 +14,10 @@ import (
 const RedisLinux = "linux"
 const RedisWindows = "windows"
 
-func initRepo() repo.Repository {
+func initRepo() repo.RepositoryClipboard {
 	envRepo := os.Getenv("REPO")
 
-	var repo repo.Repository
+	var repo repo.RepositoryClipboard
 	switch envRepo {
 	case RedisLinux:
 		repo = redisclipboardlinux.New("127.0.0.1:6379", 1)

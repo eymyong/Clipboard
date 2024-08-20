@@ -17,7 +17,7 @@ func keyRedisClipboard(id string) string {
 	return "clipboard:" + id
 }
 
-func New(addr string, db int) repo.Repository {
+func New(addr string, db int) repo.RepositoryClipboard {
 	rd := redis.NewClient(&redis.Options{
 		Addr: addr,
 		DB:   db,
