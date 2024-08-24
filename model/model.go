@@ -6,13 +6,24 @@ type Clipboard struct {
 }
 
 type User struct {
-	Firstname string
-	Lastname  string
-	Age       int
-	Sex       string
+	Name string
+	Age  int
+	//Sex       string
 }
 
-type Login struct {
+type Account struct {
+	Id       string
 	Username string
 	Password string
 }
+
+type KeyAccount struct {
+	Data map[string]string
+}
+
+// type _User struct {
+// 	Id        string
+// 	Username  string
+// 	Password  string
+// 	BirthDate time.Time
+// }
