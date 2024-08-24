@@ -39,7 +39,7 @@ func main() {
 	r.HandleFunc("/clipboards/delete/{clipboard-id}", h.DeleteClip).Methods(http.MethodDelete)
 
 	r.HandleFunc("/users/register", h.Register).Methods(http.MethodPost)
-	r.HandleFunc("/users/login", h.Login).Methods(http.MethodGet)
+	r.HandleFunc("/users/login", h.Login).Methods(http.MethodPost)
 
 	http.ListenAndServe(":8000", r)
 
