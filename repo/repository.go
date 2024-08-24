@@ -15,11 +15,6 @@ type RepositoryClipboard interface {
 }
 
 type RepositoryUser interface {
-	Register(ctx context.Context, user string, age int, pass string) (model.KeyAccount, error)
-	Login(ctx context.Context, user string, pass string) error
-	//CreateUser(ctx context.Context, user model.User) error
-	GetAllUser(ctx context.Context) ([]model.Account, error)
-	GetByIdUser(ctx context.Context, id string) (model.Account, error)
-	UpdateUser(ctx context.Context, id string, newdata string) error
-	DeleteUser(ctx context.Context, id string) error
+	Create(ctx context.Context, user model.User) (model.User, error)
+	GetPassword(ctx context.Context, username string) ([]byte, error)
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/eymyong/drop/model"
 	"github.com/eymyong/drop/repo"
@@ -182,6 +181,11 @@ func (h *Handler) DeleteClip(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	type requestRegister struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
 	b, err := readBody(r)
 	if err != nil {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
@@ -190,51 +194,59 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if len(b) == 0 {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "empty body",
-		})
-		return
-	}
-
-	vars := mux.Vars(r)
-	user := vars["user-name"]
-	ageStr := vars["age"]
-	ageInt, err := strconv.Atoi(ageStr)
+	var req requestRegister
+	err = json.Unmarshal(b, &req)
 	if err != nil {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error":  "age not correct",
+			"error":  "invalid body",
 			"reason": err.Error(),
 		})
+
 		return
 	}
 
-	if user == "" || ageStr == "" {
+	if req.Username == "" {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "missing name or age",
+			"error":  "invalid body",
+			"reason": "empty username",
 		})
+
 		return
 	}
 
-	ctx := context.Background()
-	account, err := h.repoUser.Register(ctx, user, ageInt, string(b))
+	if req.Password == "" {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error":  "invalid body",
+			"reason": "empty password`",
+		})
+
+		return
+	}
+
+	user := model.User{
+		Id:       uuid.NewString(),
+		Username: req.Username,
+		Password: req.Password,
+	}
+
+	ctx := r.Context()
+	_, err = h.repoUser.Create(ctx, user)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error":  "failed to register",
+			"error":  "failed to register user",
 			"reason": err.Error(),
 		})
+
 		return
-
 	}
-
-	sendJson(w, http.StatusOK, map[string]interface{}{
-		"sucess":  fmt.Sprintf("register to id: %s", account),
-		"account": account,
-	})
-
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	type requestLogin struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
 	b, err := readBody(r)
 	if err != nil {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
@@ -243,28 +255,36 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	vars := mux.Vars(r)
-	user := vars["user-name"]
-	if user == "" {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "missing username",
-		})
-	}
-
-	ctx := context.Background()
-	err = h.repoUser.Login(ctx, user, string(b))
+	var req requestLogin
+	err = json.Unmarshal(b, &req)
 	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error":  "failed to login",
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error":  "invalid body",
 			"reason": err.Error(),
 		})
+
 		return
 	}
 
-	sendJson(w, http.StatusOK, map[string]interface{}{
-		"login sucess": "welcome",
-	})
+	ctx := r.Context()
+	pass, err := h.repoUser.GetPassword(ctx, req.Username)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "login failed",
+		})
 
+		return
+	}
+
+	if string(pass) != req.Password {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "login failed",
+		})
+
+		return
+	}
+
+	sendJson(w, http.StatusOK, "ok")
 }
 
 func (h *Handler) CreateU(w http.ResponseWriter, r *http.Request) {

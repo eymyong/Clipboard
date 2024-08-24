@@ -6,24 +6,7 @@ type Clipboard struct {
 }
 
 type User struct {
-	Name string
-	Age  int
-	//Sex       string
+	Id       string `json:"id"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
-
-type Account struct {
-	Id       string
-	Username string
-	Password string
-}
-
-type KeyAccount struct {
-	Data map[string]string
-}
-
-// type _User struct {
-// 	Id        string
-// 	Username  string
-// 	Password  string
-// 	BirthDate time.Time
-// }
