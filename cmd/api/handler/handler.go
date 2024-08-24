@@ -12,6 +12,12 @@ import (
 	"github.com/eymyong/drop/repo"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/soyart/gfc/pkg/gfc"
+)
+
+const (
+	secretKey        = "my-secret-foobarbaz200030004000x"
+	encodingPassword = gfc.EncodingBase64
 )
 
 type Handler struct {
@@ -223,10 +229,29 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	password := bytes.NewBuffer([]byte(req.Password))
+	ciphertext, err := gfc.EncryptGCM(password, []byte(secretKey))
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to register",
+		})
+
+		return
+	}
+
+	ciphertextString, err := gfc.Encode(encodingPassword, ciphertext)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to register",
+		})
+
+		return
+	}
+
 	user := model.User{
 		Id:       uuid.NewString(),
 		Username: req.Username,
-		Password: req.Password,
+		Password: string(ciphertextString.Bytes()),
 	}
 
 	ctx := r.Context()
@@ -276,7 +301,26 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if string(pass) != req.Password {
+	passwordString := bytes.NewBuffer(pass)
+	ciphertext, err := gfc.Decode(encodingPassword, passwordString)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "login failed",
+		})
+
+		return
+	}
+
+	password, err := gfc.DecryptGCM(ciphertext, []byte(secretKey))
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "login failed",
+		})
+
+		return
+	}
+
+	if string(password.Bytes()) != req.Password {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error": "login failed",
 		})
