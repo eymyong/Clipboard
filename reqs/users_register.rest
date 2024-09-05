@@ -2,5 +2,5 @@ POST  http://localhost:8000/users/register HTTP/1.1
 
 {
     "username": "yong",
-    "password": "bar"
+    "password": "123456"
 }

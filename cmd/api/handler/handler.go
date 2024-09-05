@@ -186,6 +186,7 @@ func (h *Handler) DeleteClip(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// TODO ถ้ามี username แล้วจะ register ไม่ได้ //
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	type requestRegister struct {
 		Username string `json:"username"`
@@ -328,58 +329,21 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJson(w, http.StatusOK, "ok")
+	sendJson(w, http.StatusOK, "login succes")
 }
 
-func (h *Handler) CreateU(w http.ResponseWriter, r *http.Request) {
-	b, err := readBody(r)
-	if err != nil {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error":  "failed to read body",
-			"reason": err.Error(),
-		})
-		return
-	}
-
-	if len(b) == 0 {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "empty body",
-		})
-		return
-	}
-
-	clipboard := model.Clipboard{
-		Id:   uuid.NewString(),
-		Text: string(b),
-	}
-	ctx := context.Background()
-	err = h.repoClipboard.Create(ctx, clipboard)
+func (h *Handler) GetAllUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	users, err := h.repoUser.GetAll(ctx)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error":  "failed to create clipboard",
+			"error":  "failed to get all users",
 			"reason": err.Error(),
 		})
 		return
 	}
 
-	sendJson(w, http.StatusCreated, map[string]interface{}{
-		"success": "ok",
-		"created": clipboard,
-	})
-}
-
-func (h *Handler) GetAllU(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-	clipboards, err := h.repoClipboard.GetAll(ctx)
-	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error":  "failed to get all todos",
-			"reason": err.Error(),
-		})
-		return
-	}
-
-	sendJson(w, http.StatusOK, clipboards)
+	sendJson(w, http.StatusOK, users)
 }
 
 func (h *Handler) GetU(w http.ResponseWriter, r *http.Request) {
@@ -469,3 +433,40 @@ func (h *Handler) DeleteU(w http.ResponseWriter, r *http.Request) {
 		"sucess": fmt.Sprintf("delete to id: %s", id),
 	})
 }
+
+// func (h *Handler) CreateU(w http.ResponseWriter, r *http.Request) {
+// 	b, err := readBody(r)
+// 	if err != nil {
+// 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+// 			"error":  "failed to read body",
+// 			"reason": err.Error(),
+// 		})
+// 		return
+// 	}
+
+// 	if len(b) == 0 {
+// 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+// 			"error": "empty body",
+// 		})
+// 		return
+// 	}
+
+// 	clipboard := model.Clipboard{
+// 		Id:   uuid.NewString(),
+// 		Text: string(b),
+// 	}
+// 	ctx := context.Background()
+// 	err = h.repoClipboard.Create(ctx, clipboard)
+// 	if err != nil {
+// 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+// 			"error":  "failed to create clipboard",
+// 			"reason": err.Error(),
+// 		})
+// 		return
+// 	}
+
+// 	sendJson(w, http.StatusCreated, map[string]interface{}{
+// 		"success": "ok",
+// 		"created": clipboard,
+// 	})
+// }

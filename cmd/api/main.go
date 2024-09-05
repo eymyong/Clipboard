@@ -40,6 +40,7 @@ func main() {
 
 	r.HandleFunc("/users/register", h.Register).Methods(http.MethodPost)
 	r.HandleFunc("/users/login", h.Login).Methods(http.MethodPost)
+	r.HandleFunc("/users/getall", h.GetAllUser).Methods(http.MethodGet)
 
 	http.ListenAndServe(":8000", r)
 
