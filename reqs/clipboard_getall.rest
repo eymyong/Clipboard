@@ -1,1 +1,1 @@
-GET http://localhost:8000/getall HTTP/1.1
+GET http://localhost:8000/clipboards/getall HTTP/1.1

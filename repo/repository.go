@@ -19,7 +19,8 @@ type RepositoryUser interface {
 	GetPassword(ctx context.Context, username string) ([]byte, error)
 	GetAll(ctx context.Context) ([]model.User, error)
 	GetById(ctx context.Context, id string) (model.User, error)
-	UpdateUser(ctx context.Context, id string, newUserName string) error
+	UpdateUserName(ctx context.Context, id string, newUserName string) error
 	UpdatePassword(ctx context.Context, id string, newPassword string) error
 	Delete(ctx context.Context, id string) error
+	DeleteAll(ctx context.Context) error
 }

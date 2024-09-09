@@ -1,6 +1,6 @@
 POST http://localhost:8000/users/login HTTP/1.1
 
 {
-    "username": "pak",
-    "password": "1234"
+    "username": "pong",
+    "password": "0000"
 }

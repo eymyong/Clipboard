@@ -265,6 +265,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
+	sendJson(w, http.StatusOK, map[string]interface{}{
+		"success": "successfully registered",
+	})
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -329,11 +333,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJson(w, http.StatusOK, "login succes")
+	sendJson(w, http.StatusOK, map[string]interface{}{
+		"success": "hello " + req.Username,
+	})
 }
 
 func (h *Handler) GetAllUser(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := context.Background()
 	users, err := h.repoUser.GetAll(ctx)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
@@ -346,9 +352,9 @@ func (h *Handler) GetAllUser(w http.ResponseWriter, r *http.Request) {
 	sendJson(w, http.StatusOK, users)
 }
 
-func (h *Handler) GetU(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetByIdUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["clipboard-id"]
+	id := vars["user-id"]
 	if id == "" {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error": "missing id",
@@ -356,19 +362,22 @@ func (h *Handler) GetU(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := context.Background()
-	clipboard, err := h.repoClipboard.GetById(ctx, id)
+	user, err := h.repoUser.GetById(ctx, id)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error":  fmt.Sprintf("failed to get todo %s", id),
+			"error":  fmt.Sprintf("failed to get user: %s", id),
 			"reason": err.Error(),
 		})
 		return
 	}
 
-	sendJson(w, http.StatusOK, clipboard)
+	sendJson(w, http.StatusOK, map[string]interface{}{
+		"get by id": id,
+		"reson":     user,
+	})
 }
 
-func (h *Handler) UpdateUById(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateUserName(w http.ResponseWriter, r *http.Request) {
 	b, err := readBody(r)
 	if err != nil {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
@@ -386,7 +395,7 @@ func (h *Handler) UpdateUById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vars := mux.Vars(r)
-	id := vars["clipboard-id"]
+	id := vars["user-id"]
 	if id == "" {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error": "missing id",
@@ -394,11 +403,11 @@ func (h *Handler) UpdateUById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := context.Background()
-	err = h.repoClipboard.Update(ctx, id, string(b))
+	ctx := r.Context()
+	err = h.repoUser.UpdateUserName(ctx, id, string(b))
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error":  "failed to update",
+			"error":  "failed to update user",
 			"reason": err.Error(),
 		})
 		return
@@ -410,9 +419,117 @@ func (h *Handler) UpdateUById(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) DeleteU(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
+	type requestUpdatePassword struct {
+		Username    string `json:username`
+		Password    string `json:password`
+		NewPassword string `json:newpassword`
+	}
+
+	dataByte, err := readBody(r)
+	if err != nil {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error":  "failed to read body",
+			"reason": err.Error(),
+		})
+		return
+	}
+
 	vars := mux.Vars(r)
-	id := vars["clipboard-id"]
+	id := vars["user-id"]
+	if id == "" {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "missing id",
+		})
+		return
+	}
+
+	var req requestUpdatePassword
+	err = json.Unmarshal(dataByte, &req)
+	if err != nil {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error":  "invalid body",
+			"reason": err.Error(),
+		})
+		return
+	}
+
+	if req.NewPassword == req.Password {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "expected new password",
+		})
+		return
+	}
+
+	ctx := r.Context()
+	passByte, err := h.repoUser.GetPassword(ctx, req.Username)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":  "failed to update password",
+			"reason": err.Error(),
+		})
+		return
+	}
+
+	passwordString := bytes.NewBuffer(passByte)
+	ciphertext, err := gfc.Decode(encodingPassword, passwordString)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to update password",
+		})
+		return
+	}
+
+	password, err := gfc.DecryptGCM(ciphertext, []byte(secretKey))
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to update password",
+		})
+		return
+	}
+
+	if string(password.Bytes()) != req.Password {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to update password",
+			"reson": "password is incorrect",
+		})
+		return
+	}
+
+	newPassword := bytes.NewBuffer([]byte(req.NewPassword))
+	newCiphertext, err := gfc.EncryptGCM(newPassword, []byte(secretKey))
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to update password",
+		})
+		return
+	}
+
+	newCiphertextString, err := gfc.Encode(encodingPassword, newCiphertext)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to update password",
+		})
+		return
+	}
+
+	err = h.repoUser.UpdatePassword(ctx, id, string(newCiphertextString.Bytes()))
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":  "failed to update password",
+			"reason": err.Error(),
+		})
+		return
+	}
+
+	sendJson(w, http.StatusOK, map[string]interface{}{
+		"success": "update password to id: " + id,
+	})
+}
+
+func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["user-id"]
 	if id == "" {
 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error": "missing id",
@@ -420,7 +537,7 @@ func (h *Handler) DeleteU(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := context.Background()
-	err := h.repoClipboard.Delete(ctx, id)
+	err := h.repoUser.Delete(ctx, id)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to delete",
@@ -434,39 +551,17 @@ func (h *Handler) DeleteU(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// func (h *Handler) CreateU(w http.ResponseWriter, r *http.Request) {
-// 	b, err := readBody(r)
-// 	if err != nil {
-// 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-// 			"error":  "failed to read body",
-// 			"reason": err.Error(),
-// 		})
-// 		return
-// 	}
+func (h *Handler) DeleteAllUser(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	err := h.repoUser.DeleteAll(ctx)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to deleteall",
+			"reson": err.Error(),
+		})
+	}
 
-// 	if len(b) == 0 {
-// 		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-// 			"error": "empty body",
-// 		})
-// 		return
-// 	}
-
-// 	clipboard := model.Clipboard{
-// 		Id:   uuid.NewString(),
-// 		Text: string(b),
-// 	}
-// 	ctx := context.Background()
-// 	err = h.repoClipboard.Create(ctx, clipboard)
-// 	if err != nil {
-// 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-// 			"error":  "failed to create clipboard",
-// 			"reason": err.Error(),
-// 		})
-// 		return
-// 	}
-
-// 	sendJson(w, http.StatusCreated, map[string]interface{}{
-// 		"success": "ok",
-// 		"created": clipboard,
-// 	})
-// }
+	sendJson(w, http.StatusOK, map[string]interface{}{
+		"sucess": "delete all in redis [selecct 3]",
+	})
+}

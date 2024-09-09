@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
@@ -35,36 +34,58 @@ func main() {
 	})
 	ctx := context.Background()
 
-	userData := map[string]string{
-		"username": "test1",
+	users := "user: "
+	type test struct {
+		Id       string `json:"id"`
+		Username string `json:"username"`
+		Password string `json:"password"`
 	}
+	_ = users
+	u := test{
+		Id:       "1",
+		Username: "one",
+		Password: "1111",
+	}
+	_ = u
 
-	userDataJson, err := json.Marshal(userData)
+	username := "yong"
+	_ = username
+
+	err := rd.HSet(ctx, "test:1", "id", "1").Err()
 	if err != nil {
-		panic("marshal err")
+		fmt.Println("hset redis err: %w", err)
 	}
 
-	// err := rd.Set(ctx, "t", "t1", time.Hour).Err()
+	value, err := rd.HGet(ctx, "test:1", "id").Result()
+	if err != nil {
+		fmt.Println("gset redis err: %w", err)
+	}
+
+	fmt.Println("value: ", value)
+
+	value2, err := rd.HGet(ctx, "test:2", "id").Result()
+	if err != nil {
+		fmt.Println("gset redis err: %w", err)
+	}
+
+	fmt.Println("value2: ", value2)
+
+	// keys, err := rd.Keys(ctx, "*").Result()
 	// if err != nil {
 	// 	panic(err)
 	// }
 
-	// i, err := rd.Exists(ctx, "ttt").Result()
+	// m, err := rd.HGetAll(ctx, redisuser.KeyLogins).Result()
 	// if err != nil {
 	// 	panic(err)
 	// }
-	// fmt.Println(i)
-	err = rd.Set(ctx, "user:test1", string(userDataJson), 0).Err()
-	if err != nil {
-		panic("set err")
-	}
+	// fmt.Println(m)
 
-	data, err := rd.Get(ctx, "user:test1").Result()
-	fmt.Println(data)
+	// _, ok := m[username]
+	// if ok {
+	// 	fmt.Println("alalready exists")
+	// 	return
+	// }
 
-	data2, err := rd.HGetAll(ctx, "t").Result()
-	if err != nil {
-		panic("getall err")
-	}
-	fmt.Println(data2)
+	// fmt.Println("not found username")
 }

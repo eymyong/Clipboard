@@ -1,3 +1,3 @@
-PATCH http://localhost:8000/update/6f3671c6-3ad9-44bb-94c5-76e5e16f4d34 HTTP/1.1
+PATCH http://localhost:8000/clipboards/update/a39ff4a8-e924-4092-b7b8-0bd1390b51c0 HTTP/1.1
 
 yyyyy
