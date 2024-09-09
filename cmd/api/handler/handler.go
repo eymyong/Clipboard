@@ -404,7 +404,7 @@ func (h *Handler) UpdateUserName(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	err = h.repoUser.UpdateUserName(ctx, id, string(b))
+	err = h.repoUser.UpdateUser(ctx, id, string(b))
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to update user",

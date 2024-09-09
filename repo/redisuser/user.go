@@ -172,7 +172,7 @@ func (r *RepoRedisUser) CheckDuplicateName(username string) error {
 	return nil
 }
 
-func (r *RepoRedisUser) UpdateUserName(ctx context.Context, id string, newUsername string) error {
+func (r *RepoRedisUser) UpdateUser(ctx context.Context, id string, newUsername string) error {
 	key := keyUsers(id)
 
 	err := r.CheckDuplicateName(newUsername)
