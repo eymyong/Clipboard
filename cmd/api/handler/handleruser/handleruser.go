@@ -10,23 +10,25 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/soyart/gfc/pkg/gfc"
 
+	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/model"
 	"github.com/eymyong/drop/repo"
 )
 
-const (
-	secretKey        = "my-secret-foobarbaz200030004000x"
-	encodingPassword = gfc.EncodingBase64
-)
-
 type HandlerUser struct {
-	repoUser repo.RepositoryUser
+	repoUser        repo.RepositoryUser
+	servicePassword service.Password
 }
 
-func NewUser(repoUser repo.RepositoryUser) *HandlerUser {
-	return &HandlerUser{repoUser: repoUser}
+func NewUser(
+	repoUser repo.RepositoryUser,
+	servicePassword service.Password,
+) *HandlerUser {
+	return &HandlerUser{
+		repoUser:        repoUser,
+		servicePassword: servicePassword,
+	}
 }
 
 func sendJson(w http.ResponseWriter, status int, data interface{}) {
@@ -92,29 +94,18 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	password := bytes.NewBuffer([]byte(req.Password))
-	ciphertext, err := gfc.EncryptGCM(password, []byte(secretKey))
+	password, err := h.servicePassword.EncryptBase64(req.Password)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "failed to register",
+			"error":  "failed to encrypt password",
+			"reason": err.Error(),
 		})
-
-		return
-	}
-
-	ciphertextString, err := gfc.Encode(encodingPassword, ciphertext)
-	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "failed to register",
-		})
-
-		return
 	}
 
 	user := model.User{
 		Id:       uuid.NewString(),
 		Username: req.Username,
-		Password: string(ciphertextString.Bytes()),
+		Password: password,
 	}
 
 	ctx := r.Context()
@@ -161,7 +152,7 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	pass, err := h.repoUser.GetPassword(ctx, req.Username)
+	passwordBase64, err := h.repoUser.GetPassword(ctx, req.Username)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error": "login failed",
@@ -170,8 +161,7 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passwordString := bytes.NewBuffer(pass)
-	ciphertext, err := gfc.Decode(encodingPassword, passwordString)
+	password, err := h.servicePassword.DecryptBase64(string(passwordBase64))
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error": "login failed",
@@ -180,16 +170,7 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	password, err := gfc.DecryptGCM(ciphertext, []byte(secretKey))
-	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "login failed",
-		})
-
-		return
-	}
-
-	if string(password.Bytes()) != req.Password {
+	if password != req.Password {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error": "login failed",
 		})

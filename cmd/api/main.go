@@ -10,19 +10,22 @@ import (
 
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
 	"github.com/eymyong/drop/cmd/api/handler/handleruser"
+	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/repo/redisclipboard"
 	"github.com/eymyong/drop/repo/redisuser"
 )
 
 func envRedisDb() int {
+	const defaultDb = 0
+
 	dbEnv, ok := os.LookupEnv("REDIS_DB")
 	if !ok || dbEnv == "" {
-		return 0
+		return defaultDb
 	}
 
 	db, err := strconv.Atoi(dbEnv)
 	if err != nil {
-		return 0
+		return defaultDb
 	}
 
 	return db
@@ -39,15 +42,28 @@ func envRedisAddr() string {
 	return addr
 }
 
+func envPasswordKeyAES() string {
+	const defaultKey = "my-secret-foobarbaz200030004000x"
+
+	k, ok := os.LookupEnv("PASSWORD_KEY_AES")
+	if !ok || len(k) < 32 {
+		return defaultKey
+	}
+
+	return k
+}
+
 func main() {
 	redisAddr := envRedisAddr()
 	redisDb := envRedisDb()
+	passwordKey := envPasswordKeyAES()
 
 	repoClip := redisclipboard.New(redisAddr, redisDb)
 	repoUser := redisuser.New(redisAddr, redisDb)
+	servicePassword := service.NewServicePassword(passwordKey)
 
 	hClip := handlerclipboard.NewClipboard(repoClip)
-	hUser := handleruser.NewUser(repoUser)
+	hUser := handleruser.NewUser(repoUser, servicePassword)
 
 	r := mux.NewRouter()
 
