@@ -1,4 +1,4 @@
-package redisclipboardwindows
+package redisclipboard
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type RepoRedisWindows struct {
+type RepoRedis struct {
 	rd *redis.Client
 }
 
@@ -23,24 +23,18 @@ func New(addr string, db int) repo.RepositoryClipboard {
 		DB:   db,
 	})
 
-	return &RepoRedisWindows{rd: rd}
+	return &RepoRedis{rd: rd}
 }
 
-func (r *RepoRedisWindows) Create(ctx context.Context, clip model.Clipboard) error {
-	key := keyRedisClipboard(clip.Id)
-	err := r.rd.HSet(ctx, key, "id", clip.Id).Err()
+func (r *RepoRedis) Create(ctx context.Context, clip model.Clipboard) error {
+	err := r.rd.HSet(ctx, keyRedisClipboard(clip.Id), "id", clip.Id, "text", clip.Text).Err()
 	if err != nil {
-		return fmt.Errorf("hset redis field `id` err: %w", err)
-	}
-
-	err = r.rd.HSet(ctx, key, "text", clip.Text).Err()
-	if err != nil {
-		return fmt.Errorf("hset redis field `text` err: %w", err)
+		return fmt.Errorf("hset redis err: %w", err)
 	}
 	return nil
 }
 
-func (r *RepoRedisWindows) GetAll(ctx context.Context) ([]model.Clipboard, error) {
+func (r *RepoRedis) GetAll(ctx context.Context) ([]model.Clipboard, error) {
 	keyClipboards, err := r.rd.Keys(ctx, "clipboard:*").Result()
 	if err != nil {
 		return []model.Clipboard{}, fmt.Errorf("keys redis err: %w", err)
@@ -68,7 +62,7 @@ func (r *RepoRedisWindows) GetAll(ctx context.Context) ([]model.Clipboard, error
 	return clipboards, nil
 }
 
-func (r *RepoRedisWindows) GetById(ctx context.Context, id string) (model.Clipboard, error) {
+func (r *RepoRedis) GetById(ctx context.Context, id string) (model.Clipboard, error) {
 	data, err := r.rd.HGetAll(ctx, keyRedisClipboard(id)).Result()
 	if err != nil {
 		return model.Clipboard{}, fmt.Errorf("hgetall redis err: %w", err)
@@ -91,7 +85,7 @@ func (r *RepoRedisWindows) GetById(ctx context.Context, id string) (model.Clipbo
 	return clipboard, nil
 }
 
-func (r *RepoRedisWindows) Update(ctx context.Context, id string, newdata string) error {
+func (r *RepoRedis) Update(ctx context.Context, id string, newdata string) error {
 	key := keyRedisClipboard(id)
 	c, err := r.rd.Exists(ctx, key).Result()
 	if err != nil {
@@ -110,7 +104,7 @@ func (r *RepoRedisWindows) Update(ctx context.Context, id string, newdata string
 	return nil
 }
 
-func (r *RepoRedisWindows) Delete(ctx context.Context, id string) error {
+func (r *RepoRedis) Delete(ctx context.Context, id string) error {
 	err := r.rd.Del(ctx, keyRedisClipboard(id)).Err()
 	if err != nil {
 		return fmt.Errorf("del redis err: %w", err)

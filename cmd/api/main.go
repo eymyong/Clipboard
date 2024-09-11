@@ -1,40 +1,56 @@
 package main
 
 import (
+	"log"
 	"net/http"
+	"os"
+	"strconv"
+
+	"github.com/gorilla/mux"
 
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
 	"github.com/eymyong/drop/cmd/api/handler/handleruser"
-	"github.com/eymyong/drop/repo"
-	"github.com/eymyong/drop/repo/redisclipboardwindows"
+	"github.com/eymyong/drop/repo/redisclipboard"
 	"github.com/eymyong/drop/repo/redisuser"
-	"github.com/gorilla/mux"
 )
 
-const RedisClipboardLinux = "linux"
-const RedisClipboardWindows = "windows"
-const RedisUser = "user"
+func envRedisDb() int {
+	dbEnv, ok := os.LookupEnv("REDIS_DB")
+	if !ok || dbEnv == "" {
+		return 0
+	}
 
-func initRepoClip() repo.RepositoryClipboard {
-	repo := redisclipboardwindows.New("127.0.0.1:6379", 2)
-	return repo
+	db, err := strconv.Atoi(dbEnv)
+	if err != nil {
+		return 0
+	}
+
+	return db
 }
 
-func initRepoUser() repo.RepositoryUser {
-	repo := redisuser.New("127.0.0.1:6379", 3)
-	return repo
+func envRedisAddr() string {
+	const defaultAddr = "127.0.0.1:6379"
+
+	addr, ok := os.LookupEnv("REDIS_ADDR")
+	if !ok || addr == "" {
+		return defaultAddr
+	}
+
+	return addr
 }
 
 func main() {
+	redisAddr := envRedisAddr()
+	redisDb := envRedisDb()
 
-	repoClip := initRepoClip()
-	repoUser := initRepoUser()
-	//h := handler.New(repoClip, repoUser)
+	repoClip := redisclipboard.New(redisAddr, redisDb)
+	repoUser := redisuser.New(redisAddr, redisDb)
 
 	hClip := handlerclipboard.NewClipboard(repoClip)
 	hUser := handleruser.NewUser(repoUser)
 
 	r := mux.NewRouter()
+
 	r.HandleFunc("/clipboards/create", hClip.CreateClip).Methods(http.MethodPost)
 	r.HandleFunc("/clipboards/getall", hClip.GetAllClips).Methods(http.MethodGet)
 	r.HandleFunc("/clipboards/get/{clipboard-id}", hClip.GetClipById).Methods(http.MethodGet)
@@ -43,13 +59,13 @@ func main() {
 
 	r.HandleFunc("/users/register", hUser.Register).Methods(http.MethodPost)
 	r.HandleFunc("/users/login", hUser.Login).Methods(http.MethodPost)
-	r.HandleFunc("/users/getall", hUser.GetAllUser).Methods(http.MethodGet)
-	r.HandleFunc("/users/get/{user-id}", hUser.GetByIdUser).Methods(http.MethodGet)
-	r.HandleFunc("/users/update/username/{user-id}", hUser.UpdateUserName).Methods(http.MethodPatch)
+	r.HandleFunc("/users/get/{user-id}", hUser.GetUserById).Methods(http.MethodGet)
+	r.HandleFunc("/users/update/username/{user-id}", hUser.UpdateUsername).Methods(http.MethodPatch)
 	r.HandleFunc("/users/update/password/{user-id}", hUser.UpdatePassword).Methods(http.MethodPatch)
 	r.HandleFunc("/users/delete/{user-id}", hUser.DeleteUser).Methods(http.MethodDelete)
-	r.HandleFunc("/users/deleteall", hUser.DeleteAllUser).Methods(http.MethodDelete)
 
-	http.ListenAndServe(":8000", r)
-
+	err := http.ListenAndServe(":8000", r)
+	if err != nil {
+		log.Println("server error:", err)
+	}
 }
