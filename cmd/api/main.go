@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -53,6 +54,15 @@ func envPasswordKeyAES() string {
 	return k
 }
 
+func mw(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("==================")
+		fmt.Println("from mw", r.URL)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	redisAddr := envRedisAddr()
 	redisDb := envRedisDb()
@@ -67,8 +77,15 @@ func main() {
 
 	r := mux.NewRouter()
 
+	r.Use(mw)
+
+	r.HandleFunc("/foo", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("from foo")
+		fmt.Fprintf(w, "ok")
+	})
+
 	r.HandleFunc("/clipboards/create", hClip.CreateClip).Methods(http.MethodPost)
-	r.HandleFunc("/clipboards/getall", hClip.GetAllClips).Methods(http.MethodGet)
+	r.HandleFunc("/clipboards/get-all", hClip.GetAllClips).Methods(http.MethodGet)
 	r.HandleFunc("/clipboards/get/{clipboard-id}", hClip.GetClipById).Methods(http.MethodGet)
 	r.HandleFunc("/clipboards/update/{clipboard-id}", hClip.UpdateClipById).Methods(http.MethodPatch)
 	r.HandleFunc("/clipboards/delete/{clipboard-id}", hClip.DeleteClip).Methods(http.MethodDelete)

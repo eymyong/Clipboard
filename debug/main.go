@@ -1,91 +1,52 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/pkg/errors"
 )
 
 func main() {
-	// repo := repo.RepositoryUser
-	// ctx := context.Background()
-	// rd := redisuser.New("127.0.0.1:6379", 3)
+	key := []byte("someKey")
+	token, _, err := newJwt("clipboard-server", "userid-1", key)
+	if err != nil {
+		panic(err)
+	}
 
-	// u := model.User{
-	// 	Name: "yong",
-	// 	Age:  20,
-	// }
-	// _ = u
+	fmt.Println("token", token)
 
-	// // a, err := rd.Register(ctx, u)
-	// // if err != nil {
-	// // 	panic(err)
-	// // }
-	// // fmt.Println(a)
+	payload, err := verifyJwt(token, key)
+	if err != nil {
+		panic(err)
+	}
 
-	// err := rd.Login(ctx, "", "yong", "1234")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// ------------------------
-	rd := redis.NewClient(&redis.Options{
-		Addr: "127.0.0.1:6379",
+	fmt.Println("payload", payload)
+}
+
+func newJwt(iss, id string, key []byte) (token string, exp time.Time, err error) {
+	// TODO: investigate if Local() is actually needed
+	exp = time.Now().Add(24 * time.Hour).Local()
+	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
+		Id:        id,
+		Issuer:    iss,
+		ExpiresAt: exp.Unix(),
 	})
-	ctx := context.Background()
-
-	users := "user: "
-	type test struct {
-		Id       string `json:"id"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-	_ = users
-	u := test{
-		Id:       "1",
-		Username: "one",
-		Password: "1111",
-	}
-	_ = u
-
-	username := "yong"
-	_ = username
-
-	err := rd.HSet(ctx, "test:1", "id", "1").Err()
+	// Generate JWT token from claims
+	token, err = claims.SignedString(key)
 	if err != nil {
-		fmt.Println("hset redis err: %w", err)
+		return token, exp, errors.Wrapf(err, "failed to validate with key %s", key)
 	}
+	return token, exp, nil
+}
 
-	value, err := rd.HGet(ctx, "test:1", "id").Result()
+func verifyJwt(tokenStr string, key []byte) (jwt.Claims, error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		return key, nil
+	})
 	if err != nil {
-		fmt.Println("gset redis err: %w", err)
+		return nil, errors.Wrapf(err, "failed to parse JWT token %s", tokenStr)
 	}
-
-	fmt.Println("value: ", value)
-
-	value2, err := rd.HGet(ctx, "test:2", "id").Result()
-	if err != nil {
-		fmt.Println("gset redis err: %w", err)
-	}
-
-	fmt.Println("value2: ", value2)
-
-	// keys, err := rd.Keys(ctx, "*").Result()
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// m, err := rd.HGetAll(ctx, redisuser.KeyLogins).Result()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Println(m)
-
-	// _, ok := m[username]
-	// if ok {
-	// 	fmt.Println("alalready exists")
-	// 	return
-	// }
-
-	// fmt.Println("not found username")
+	return token.Claims, nil
 }
