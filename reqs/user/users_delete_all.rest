@@ -1,1 +1,0 @@
-DELETE http://localhost:8000/users/deleteall HTTP/1.1

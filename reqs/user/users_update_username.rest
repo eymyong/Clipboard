@@ -1,3 +1,0 @@
-PATCH http://localhost:8000/users/update/username/813772f6-7985-48d2-985c-2bd9b5d9a3e1 HTTP/1.1
-
-pong

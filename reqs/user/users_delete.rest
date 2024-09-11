@@ -1,1 +1,0 @@
-DELETE http://localhost:8000/users/delete/9079de62-454f-4476-a00f-bd0d7e07b241 HTTP/1.1

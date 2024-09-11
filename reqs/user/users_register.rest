@@ -1,6 +1,0 @@
-POST  http://localhost:8000/users/register HTTP/1.1
-
-{
-    "username": "art",
-    "password": "1234567"
-}

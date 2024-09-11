@@ -1,1 +1,0 @@
-DELETE http://localhost:8000/clipboards/delete/a39ff4a8-e924-4092-b7b8-0bd1390b51c0 HTTP/1.1

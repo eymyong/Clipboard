@@ -1,7 +1,0 @@
-PATCH http://localhost:8000/users/update/password/813772f6-7985-48d2-985c-2bd9b5d9a3e1 HTTP/1.1
-
-{
-    "username": "pong",
-    "password": "0000",
-    "newpassword": "0000"
-}
