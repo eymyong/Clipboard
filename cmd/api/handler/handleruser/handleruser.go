@@ -1,13 +1,12 @@
 package handleruser
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/google/uuid"
 
+	"github.com/eymyong/drop/cmd/api/handler/apiutils"
 	"github.com/eymyong/drop/cmd/api/handler/auth"
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/model"
@@ -32,25 +31,6 @@ func NewUser(
 	}
 }
 
-func sendJson(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	json.NewEncoder(w).Encode(data)
-}
-
-func readBody(r *http.Request) ([]byte, error) {
-	defer r.Body.Close()
-
-	buf := bytes.NewBuffer(nil)
-	_, err := io.Copy(buf, r.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
-}
-
 // TODO ถ้ามี username แล้วจะ register ไม่ได้ //
 func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 	type requestRegister struct {
@@ -58,9 +38,9 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 
-	b, err := readBody(r)
+	b, err := apiutils.ReadBody(r)
 	if err != nil {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error":  "failed to read body",
 			"reason": err.Error(),
 		})
@@ -69,7 +49,7 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 	var req requestRegister
 	err = json.Unmarshal(b, &req)
 	if err != nil {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error":  "invalid body",
 			"reason": err.Error(),
 		})
@@ -78,7 +58,7 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Username == "" {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error":  "invalid body",
 			"reason": "empty username",
 		})
@@ -87,7 +67,7 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Password == "" {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error":  "invalid body",
 			"reason": "empty password`",
 		})
@@ -97,7 +77,7 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 
 	password, err := h.servicePassword.EncryptBase64(req.Password)
 	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to encrypt password",
 			"reason": err.Error(),
 		})
@@ -112,7 +92,7 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	_, err = h.repoUser.Create(ctx, user)
 	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to register user",
 			"reason": err.Error(),
 		})
@@ -120,7 +100,7 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJson(w, http.StatusCreated, map[string]interface{}{
+	apiutils.SendJson(w, http.StatusCreated, map[string]interface{}{
 		"success": "successfully registered",
 	})
 }
@@ -131,9 +111,9 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 
-	b, err := readBody(r)
+	b, err := apiutils.ReadBody(r)
 	if err != nil {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error":  "failed to read body",
 			"reason": err.Error(),
 		})
@@ -144,7 +124,7 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 	var req requestLogin
 	err = json.Unmarshal(b, &req)
 	if err != nil {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error":  "invalid body",
 			"reason": err.Error(),
 		})
@@ -155,7 +135,7 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	passwordBase64, err := h.repoUser.GetPassword(ctx, req.Username)
 	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error": "login failed",
 		})
 
@@ -164,7 +144,7 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 
 	password, err := h.servicePassword.DecryptBase64(string(passwordBase64))
 	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error": "login failed",
 		})
 
@@ -172,7 +152,7 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if password != req.Password {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error": "login failed",
 		})
 
@@ -181,7 +161,7 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 
 	id, err := h.repoUser.GetUserId(ctx, req.Username)
 	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "login failed",
 			"reason": "failed to get userID",
 		})
@@ -191,13 +171,13 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 
 	token, exp, err := h.authenticator.NewTokenJWT("clipboard-login", id)
 	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to create login token",
 			"reason": err.Error(),
 		})
 	}
 
-	sendJson(w, http.StatusOK, map[string]interface{}{
+	apiutils.SendJson(w, http.StatusOK, map[string]interface{}{
 		"success":  "ok",
 		"username": req.Username,
 		"token":    token,
@@ -206,17 +186,17 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HandlerUser) GetUserById(w http.ResponseWriter, r *http.Request) {
-	sendJson(w, 500, "not implemented")
+	apiutils.SendJson(w, 500, "not implemented")
 }
 
 func (h *HandlerUser) UpdateUsername(w http.ResponseWriter, r *http.Request) {
-	sendJson(w, 500, "not implemented")
+	apiutils.SendJson(w, 500, "not implemented")
 }
 
 func (h *HandlerUser) UpdatePassword(w http.ResponseWriter, r *http.Request) {
-	sendJson(w, 500, "not implemented")
+	apiutils.SendJson(w, 500, "not implemented")
 }
 
 func (h *HandlerUser) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	sendJson(w, 500, "not implemented")
+	apiutils.SendJson(w, 500, "not implemented")
 }
