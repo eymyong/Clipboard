@@ -9,9 +9,11 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/eymyong/drop/cmd/api/handler/auth"
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
 	"github.com/eymyong/drop/cmd/api/handler/handleruser"
 	"github.com/eymyong/drop/cmd/api/service"
+	"github.com/eymyong/drop/repo"
 	"github.com/eymyong/drop/repo/redisclipboard"
 	"github.com/eymyong/drop/repo/redisuser"
 )
@@ -43,10 +45,32 @@ func envRedisAddr() string {
 	return addr
 }
 
+func envRedisUsername() string {
+	const defaultUsername = ""
+
+	rdUsername, ok := os.LookupEnv("REDIS_USERNAME")
+	if !ok || rdUsername == "" {
+		return defaultUsername
+	}
+
+	return rdUsername
+}
+
+func envRedisPassword() string {
+	const defaultPassword = ""
+
+	rdPassword, ok := os.LookupEnv("REDIS_PASSWORD")
+	if !ok || rdPassword == "" {
+		return defaultPassword
+	}
+
+	return rdPassword
+}
+
 func envPasswordKeyAES() string {
 	const defaultKey = "my-secret-foobarbaz200030004000x"
 
-	k, ok := os.LookupEnv("PASSWORD_KEY_AES")
+	k, ok := os.LookupEnv("CLIP_PASSWORD_KEY_AES")
 	if !ok || len(k) < 32 {
 		return defaultKey
 	}
@@ -54,35 +78,53 @@ func envPasswordKeyAES() string {
 	return k
 }
 
-func mw(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("==================")
-		fmt.Println("from mw", r.URL)
+func envSecretJWT() string {
+	const defaultSecret = "clipboard-jwt-secret"
 
-		next.ServeHTTP(w, r)
-	})
+	s, ok := os.LookupEnv("CLIP_SECRET_JWT")
+	if !ok || s == "" {
+		return defaultSecret
+	}
+
+	return s
+}
+
+func whoAmI(w http.ResponseWriter, r *http.Request) {
+	id := r.Header.Get("id")
+
+	if id == "" {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "missing header 'id'")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "the user id is '%s'", id)
 }
 
 func main() {
 	redisAddr := envRedisAddr()
 	redisDb := envRedisDb()
-	passwordKey := envPasswordKeyAES()
+	redisUsername := envRedisUsername()
+	redisPassword := envRedisPassword()
+	passwordKeyAES := envPasswordKeyAES()
+	secretJWT := envSecretJWT()
 
-	repoClip := redisclipboard.New(redisAddr, redisDb)
-	repoUser := redisuser.New(redisAddr, redisDb)
-	servicePassword := service.NewServicePassword(passwordKey)
+	rd := repo.NewRedis(redisAddr, redisUsername, redisPassword, redisDb)
+	repoClip := redisclipboard.New(rd)
+	repoUser := redisuser.New(rd)
+
+	servicePassword := service.NewServicePassword(passwordKeyAES)
+	authenticator := auth.New(secretJWT)
 
 	hClip := handlerclipboard.NewClipboard(repoClip)
-	hUser := handleruser.NewUser(repoUser, servicePassword)
+	hUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
 
-	r := mux.NewRouter()
+	r := mux.NewRouter()               // Main router
+	j := r.Path("/whoami").Subrouter() // Router for testing JWT
 
-	r.Use(mw)
-
-	r.HandleFunc("/foo", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("from foo")
-		fmt.Fprintf(w, "ok")
-	})
+	j.Use(authenticator.AuthMiddlewareBody)
+	j.HandleFunc("", whoAmI)
 
 	r.HandleFunc("/clipboards/create", hClip.CreateClip).Methods(http.MethodPost)
 	r.HandleFunc("/clipboards/get-all", hClip.GetAllClips).Methods(http.MethodGet)

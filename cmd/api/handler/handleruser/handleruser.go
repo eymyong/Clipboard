@@ -2,15 +2,13 @@ package handleruser
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 
+	"github.com/eymyong/drop/cmd/api/handler/auth"
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/model"
 	"github.com/eymyong/drop/repo"
@@ -19,15 +17,18 @@ import (
 type HandlerUser struct {
 	repoUser        repo.RepositoryUser
 	servicePassword service.Password
+	authenticator   auth.Authenticator
 }
 
 func NewUser(
 	repoUser repo.RepositoryUser,
 	servicePassword service.Password,
+	authenticator auth.Authenticator,
 ) *HandlerUser {
 	return &HandlerUser{
 		repoUser:        repoUser,
 		servicePassword: servicePassword,
+		authenticator:   authenticator,
 	}
 }
 
@@ -178,84 +179,38 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	id, err := h.repoUser.GetUserId(ctx, req.Username)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":  "login failed",
+			"reason": "failed to get userID",
+		})
+
+		return
+	}
+
+	token, exp, err := h.authenticator.NewTokenJWT("clipboard-login", id)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":  "failed to create login token",
+			"reason": err.Error(),
+		})
+	}
+
 	sendJson(w, http.StatusOK, map[string]interface{}{
 		"success":  "ok",
 		"username": req.Username,
+		"token":    token,
+		"exp":      exp,
 	})
 }
 
 func (h *HandlerUser) GetUserById(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["user-id"]
-	if id == "" {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "empty id",
-		})
-
-		return
-	}
-
-	ctx := context.Background()
-	user, err := h.repoUser.GetById(ctx, id)
-	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error":  fmt.Sprintf("failed to get user: %s", id),
-			"reason": err.Error(),
-		})
-
-		return
-	}
-
-	sendJson(w, http.StatusOK, map[string]interface{}{
-		"success": "ok",
-		"user":    user,
-	})
+	sendJson(w, 500, "not implemented")
 }
 
 func (h *HandlerUser) UpdateUsername(w http.ResponseWriter, r *http.Request) {
-	b, err := readBody(r)
-	if err != nil {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error":  "failed to read body",
-			"reason": err.Error(),
-		})
-
-		return
-	}
-
-	vars := mux.Vars(r)
-	id := vars["user-id"]
-	if id == "" {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "missing userId",
-		})
-
-		return
-	}
-
-	if len(b) == 0 {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "empty body",
-		})
-		return
-	}
-
-	newUsername := string(b)
-	ctx := r.Context()
-
-	err = h.repoUser.UpdateUsername(ctx, id, newUsername)
-	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error":  fmt.Sprintf("failed to update userId '%s'", id),
-			"reason": err.Error(),
-		})
-
-		return
-	}
-
-	sendJson(w, http.StatusOK, map[string]interface{}{
-		"sucess": fmt.Sprintf("user id '%s' username updated to '%s'", id, newUsername),
-	})
+	sendJson(w, 500, "not implemented")
 }
 
 func (h *HandlerUser) UpdatePassword(w http.ResponseWriter, r *http.Request) {
@@ -263,26 +218,5 @@ func (h *HandlerUser) UpdatePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HandlerUser) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["user-id"]
-	if id == "" {
-		sendJson(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "missing userId",
-		})
-
-		return
-	}
-
-	ctx := context.Background()
-	err := h.repoUser.Delete(ctx, id)
-	if err != nil {
-		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error":  fmt.Sprintf("failed to delete userId '%s'", id),
-			"reason": err.Error(),
-		})
-
-		return
-	}
-
-	sendJson(w, http.StatusOK, "deleted userId: "+id)
+	sendJson(w, 500, "not implemented")
 }
