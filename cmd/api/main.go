@@ -1,102 +1,56 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"strconv"
 
 	"github.com/gorilla/mux"
 
+	"github.com/eymyong/drop/cmd/api/handler/auth"
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
 	"github.com/eymyong/drop/cmd/api/handler/handleruser"
 	"github.com/eymyong/drop/cmd/api/service"
+	"github.com/eymyong/drop/repo"
 	"github.com/eymyong/drop/repo/redisclipboard"
 	"github.com/eymyong/drop/repo/redisuser"
 )
 
-func envRedisDb() int {
-	const defaultDb = 0
-
-	dbEnv, ok := os.LookupEnv("REDIS_DB")
-	if !ok || dbEnv == "" {
-		return defaultDb
-	}
-
-	db, err := strconv.Atoi(dbEnv)
-	if err != nil {
-		return defaultDb
-	}
-
-	return db
-}
-
-func envRedisAddr() string {
-	const defaultAddr = "127.0.0.1:6379"
-
-	addr, ok := os.LookupEnv("REDIS_ADDR")
-	if !ok || addr == "" {
-		return defaultAddr
-	}
-
-	return addr
-}
-
-func envPasswordKeyAES() string {
-	const defaultKey = "my-secret-foobarbaz200030004000x"
-
-	k, ok := os.LookupEnv("PASSWORD_KEY_AES")
-	if !ok || len(k) < 32 {
-		return defaultKey
-	}
-
-	return k
-}
-
-func mw(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("==================")
-		fmt.Println("from mw", r.URL)
-
-		next.ServeHTTP(w, r)
-	})
-}
-
 func main() {
-	redisAddr := envRedisAddr()
-	redisDb := envRedisDb()
-	passwordKey := envPasswordKeyAES()
+	conf := envConfig()
+	log.Printf("config=%+v", conf)
 
-	repoClip := redisclipboard.New(redisAddr, redisDb)
-	repoUser := redisuser.New(redisAddr, redisDb)
-	servicePassword := service.NewServicePassword(passwordKey)
+	rd := repo.NewRedis(conf.redisAddr, conf.redisUsername, conf.redisPassword, conf.redisDb)
+	repoClip := redisclipboard.New(rd)
+	repoUser := redisuser.New(rd)
 
-	hClip := handlerclipboard.NewClipboard(repoClip)
-	hUser := handleruser.NewUser(repoUser, servicePassword)
+	servicePassword := service.NewServicePassword(conf.secretAES)
+	authenticator := auth.New(conf.secretJWT)
 
-	r := mux.NewRouter()
+	handlerClip := handlerclipboard.NewClipboard(repoClip)
+	handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
 
-	r.Use(mw)
+	r := mux.NewRouter() // Main router
+	r.HandleFunc("/users/register", handlerUser.Register).Methods(http.MethodPost)
+	r.HandleFunc("/users/login", handlerUser.Login).Methods(http.MethodPost)
 
-	r.HandleFunc("/foo", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("from foo")
-		fmt.Fprintf(w, "ok")
-	})
+	routerAccount := r.PathPrefix("/account").Subrouter()
+	routerAccount.Use(authenticator.AuthMiddlewareHeader)
 
-	r.HandleFunc("/clipboards/create", hClip.CreateClip).Methods(http.MethodPost)
-	r.HandleFunc("/clipboards/get-all", hClip.GetAllClips).Methods(http.MethodGet)
-	r.HandleFunc("/clipboards/get/{clipboard-id}", hClip.GetClipById).Methods(http.MethodGet)
-	r.HandleFunc("/clipboards/update/{clipboard-id}", hClip.UpdateClipById).Methods(http.MethodPatch)
-	r.HandleFunc("/clipboards/delete/{clipboard-id}", hClip.DeleteClip).Methods(http.MethodDelete)
+	routerAccount.HandleFunc("/get", handlerUser.GetUserById).Methods(http.MethodGet)
+	routerAccount.HandleFunc("/update/username", handlerUser.UpdateUsername).Methods(http.MethodPatch)
+	routerAccount.HandleFunc("/update/password", handlerUser.UpdatePassword).Methods(http.MethodPatch)
+	routerAccount.HandleFunc("/delete", handlerUser.DeleteUser).Methods(http.MethodDelete)
 
-	r.HandleFunc("/users/register", hUser.Register).Methods(http.MethodPost)
-	r.HandleFunc("/users/login", hUser.Login).Methods(http.MethodPost)
-	r.HandleFunc("/users/get/{user-id}", hUser.GetUserById).Methods(http.MethodGet)
-	r.HandleFunc("/users/update/username/{user-id}", hUser.UpdateUsername).Methods(http.MethodPatch)
-	r.HandleFunc("/users/update/password/{user-id}", hUser.UpdatePassword).Methods(http.MethodPatch)
-	r.HandleFunc("/users/delete/{user-id}", hUser.DeleteUser).Methods(http.MethodDelete)
+	routerClipboards := r.PathPrefix("/clipboards").Subrouter()
+	routerClipboards.Use(authenticator.AuthMiddlewareHeader)
 
+	routerClipboards.HandleFunc("/create", handlerClip.CreateClip).Methods(http.MethodPost)
+	routerClipboards.HandleFunc("/get-all", handlerClip.GetAllClips).Methods(http.MethodGet)
+	routerClipboards.HandleFunc("/get/{clipboard-id}", handlerClip.GetClipById).Methods(http.MethodGet)
+	routerClipboards.HandleFunc("/update/{clipboard-id}", handlerClip.UpdateClipById).Methods(http.MethodPatch)
+	routerClipboards.HandleFunc("/delete/{clipboard-id}", handlerClip.DeleteClip).Methods(http.MethodDelete)
+
+	log.Println("starting api")
 	err := http.ListenAndServe(":8000", r)
 	if err != nil {
 		log.Println("server error:", err)

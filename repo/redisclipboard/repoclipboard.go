@@ -17,17 +17,16 @@ func keyRedisClipboard(id string) string {
 	return "clipboard:" + id
 }
 
-func New(addr string, db int) repo.RepositoryClipboard {
-	rd := redis.NewClient(&redis.Options{
-		Addr: addr,
-		DB:   db,
-	})
-
+func New(rd *redis.Client) repo.RepositoryClipboard {
 	return &RepoRedis{rd: rd}
 }
 
 func (r *RepoRedis) Create(ctx context.Context, clip model.Clipboard) error {
-	err := r.rd.HSet(ctx, keyRedisClipboard(clip.Id), "id", clip.Id, "text", clip.Text).Err()
+	err := r.rd.HSet(ctx, keyRedisClipboard(clip.Id),
+		"id", clip.Id,
+		"text", clip.Text,
+		"user_id", clip.UserId,
+	).Err()
 	if err != nil {
 		return fmt.Errorf("hset redis err: %w", err)
 	}
@@ -35,28 +34,25 @@ func (r *RepoRedis) Create(ctx context.Context, clip model.Clipboard) error {
 }
 
 func (r *RepoRedis) GetAll(ctx context.Context) ([]model.Clipboard, error) {
-	keyClipboards, err := r.rd.Keys(ctx, "clipboard:*").Result()
+	keys, err := r.rd.Keys(ctx, "clipboard:*").Result()
 	if err != nil {
 		return []model.Clipboard{}, fmt.Errorf("keys redis err: %w", err)
 	}
 
-	clipboards := []model.Clipboard{}
-	for _, v := range keyClipboards {
-		data, err := r.rd.HGetAll(ctx, v).Result()
+	clipboards := make([]model.Clipboard, len(keys))
+	for i := range keys {
+		data, err := r.rd.HGetAll(ctx, keys[i]).Result()
 		if err != nil {
 			return []model.Clipboard{}, fmt.Errorf("hgetall redis err: %w", err)
 		}
 
-		clipboard := model.Clipboard{}
-		for k, v := range data {
-			switch k {
-			case "id":
-				clipboard.Id = v
-			case "text":
-				clipboard.Text = v
-			}
+		clip := model.Clipboard{
+			Id:     data["id"],
+			UserId: data["user_id"],
+			Text:   data["text"],
 		}
-		clipboards = append(clipboards, clipboard)
+
+		clipboards[i] = clip
 	}
 
 	return clipboards, nil
@@ -72,20 +68,14 @@ func (r *RepoRedis) GetById(ctx context.Context, id string) (model.Clipboard, er
 		return model.Clipboard{}, fmt.Errorf("no data in redis")
 	}
 
-	clipboard := model.Clipboard{}
-	for k, v := range data {
-		switch k {
-		case "id":
-			clipboard.Id = v
-		case "text":
-			clipboard.Text = v
-		}
-	}
-
-	return clipboard, nil
+	return model.Clipboard{
+		Id:     data["id"],
+		UserId: data["user_id"],
+		Text:   data["text"],
+	}, nil
 }
 
-func (r *RepoRedis) Update(ctx context.Context, id string, newdata string) error {
+func (r *RepoRedis) Update(ctx context.Context, id string, newData string) error {
 	key := keyRedisClipboard(id)
 	c, err := r.rd.Exists(ctx, key).Result()
 	if err != nil {
@@ -96,7 +86,7 @@ func (r *RepoRedis) Update(ctx context.Context, id string, newdata string) error
 		return fmt.Errorf("unexpected length of redis keys %s: %d", key, c)
 	}
 
-	err = r.rd.HSet(ctx, key, "text", newdata).Err()
+	err = r.rd.HSet(ctx, key, "text", newData).Err()
 	if err != nil {
 		return fmt.Errorf("hset redis err: %w", err)
 	}
