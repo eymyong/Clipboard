@@ -21,4 +21,5 @@ type RepositoryUser interface {
 	UpdateUsername(ctx context.Context, id string, newUsername string) error
 	UpdatePassword(ctx context.Context, id string, newPassword string) error
 	Delete(ctx context.Context, id string) error
+	GetByUsername(ctx context.Context, username string) (string, error) //
 }

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
 
@@ -14,6 +16,7 @@ import (
 
 const (
 	keyLogins = "clipboard-logins"
+	JwtKey    = "key"
 )
 
 type RepoRedisUser struct {
@@ -31,10 +34,11 @@ func keyToName(key string) string {
 	return word[1]
 }
 
-func New(addr string, db int) repo.RepositoryUser {
+func New(addr string, db int, pass string) repo.RepositoryUser {
 	rd := redis.NewClient(&redis.Options{
-		Addr: addr,
-		DB:   db,
+		Addr:     addr,
+		DB:       db,
+		Password: pass,
 	})
 
 	return &RepoRedisUser{rd: rd}
@@ -93,7 +97,7 @@ func (r *RepoRedisUser) GetById(ctx context.Context, id string) (model.User, err
 		return model.User{}, fmt.Errorf("get redis err: %w", err)
 	}
 
-	password, err := r.rd.HGet(ctx, keyLogins, username).Result()
+	password, err := r.rd.HGet(ctx, key, "password").Result()
 	if err != nil {
 		return model.User{}, fmt.Errorf("hget redis in getbyid err: %w", err)
 	}
@@ -123,6 +127,28 @@ func (r *RepoRedisUser) UpdateUsername(ctx context.Context, id string, newUserna
 	if err != nil {
 		return fmt.Errorf("hset new username redis err: %w", err)
 	}
+
+	//=============
+	oldUsername, err := r.rd.HGet(ctx, key, "username").Result()
+	if err != nil {
+		return fmt.Errorf("hget old username redis err: %w", err)
+	}
+
+	password, err := r.rd.HGet(ctx, key, "password").Result()
+	if err != nil {
+		return fmt.Errorf("hget password redis err: %w", err)
+	}
+
+	err = r.rd.HDel(ctx, keyLogins, oldUsername).Err()
+	if err != nil {
+		return fmt.Errorf("hget old username redis err: %w", err)
+	}
+
+	err = r.rd.HSet(ctx, keyLogins, newUsername, password).Err()
+	if err != nil {
+		return fmt.Errorf("hset keylogin redis err: %w", err)
+	}
+	//=============
 
 	return nil
 }
@@ -175,4 +201,89 @@ func (r *RepoRedisUser) duplicateUsername(ctx context.Context, username string) 
 	}
 
 	return exists, nil
+}
+
+func NewJwt(userid, username string, key []byte) (token string, err error) {
+	// TODO: investigate if Local() is actually needed
+	exp := time.Now().Add(24 * time.Hour).Local()
+	_ = exp
+	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
+		Id:     userid,
+		Issuer: username,
+		// ExpiresAt: exp.Unix(),
+	})
+	// Generate JWT token from claims
+	token, err = claims.SignedString(key)
+	if err != nil {
+		return token, errors.Wrapf(err, "failed to validate with key %s", key)
+	}
+	return token, nil
+}
+
+func VerifyJwt(tokenStr string, key []byte) (jwt.Claims, error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		return key, nil
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse JWT token %s", tokenStr)
+	}
+
+	return token.Claims, nil
+}
+
+func (r *RepoRedisUser) GetByUsername(ctx context.Context, username string) (string, error) {
+	keys, err := r.rd.Keys(ctx, "users:*").Result()
+	if err != nil {
+		return "", fmt.Errorf("keys redis err: %w", err)
+	}
+
+	allId := []string{}
+	for _, v := range keys {
+		users, err := r.rd.HGetAll(ctx, v).Result()
+		if err != nil {
+			return "", fmt.Errorf("hgetall redis err: %w", err)
+		}
+
+		// map["id":ldjfogl,"username":yong,"password":"3333"]
+		for k, v := range users {
+			if k == "id" {
+				allId = append(allId, v)
+			}
+		}
+
+	}
+
+	for _, id := range allId {
+		keyId := keyUsers(id)
+		uName, err := r.rd.HGet(ctx, keyId, "username").Result()
+		if err != nil {
+			return "", fmt.Errorf("hget username redis err: %w", err)
+		}
+
+		if uName == username {
+			return id, nil
+		}
+
+		fmt.Println("uName:", uName)
+		fmt.Println("username:", username)
+	}
+
+	return "", fmt.Errorf("not found username: %s", username)
+
+}
+
+func NewJwtTest(userid, username string, key []byte) (token string, err error) {
+	// TODO: investigate if Local() is actually needed
+	exp := time.Now().Add(24 * time.Hour).Local()
+	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
+		Id:        userid,
+		Issuer:    username,
+		ExpiresAt: exp.Unix(),
+	})
+	// Generate JWT token from claims
+	token, err = claims.SignedString(key)
+	if err != nil {
+		return token, errors.Wrapf(err, "failed to validate with key %s", key)
+	}
+	return token, nil
 }

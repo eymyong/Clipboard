@@ -17,10 +17,11 @@ func keyRedisClipboard(id string) string {
 	return "clipboard:" + id
 }
 
-func New(addr string, db int) repo.RepositoryClipboard {
+func New(addr string, db int, pass string) repo.RepositoryClipboard {
 	rd := redis.NewClient(&redis.Options{
-		Addr: addr,
-		DB:   db,
+		Addr:     addr,
+		DB:       db,
+		Password: pass,
 	})
 
 	return &RepoRedis{rd: rd}

@@ -16,6 +16,43 @@ import (
 	"github.com/eymyong/drop/repo/redisuser"
 )
 
+/*
+redis-cli -h 167.179.66.149  -a ooBae5ciZiCohf9L
+*/
+
+func envRedisAddr() string {
+	const defaultAddr = "167.179.66.149:6379"
+
+	addr, ok := os.LookupEnv("REDIS_ADDR")
+	if !ok || addr == "" {
+		return defaultAddr
+	}
+
+	return addr
+}
+
+func envRedisPort() string {
+	const defaultPort = "6379"
+
+	port, ok := os.LookupEnv("REDIS_PASS")
+	if !ok || port == "" {
+		return defaultPort
+	}
+
+	return port
+}
+
+func envRedisPassword() string {
+	const defaultPass = "ooBae5ciZiCohf9L"
+
+	pass, ok := os.LookupEnv("REDIS_PASS")
+	if !ok || pass == "" {
+		return defaultPass
+	}
+
+	return pass
+}
+
 func envRedisDb() int {
 	const defaultDb = 0
 
@@ -30,17 +67,6 @@ func envRedisDb() int {
 	}
 
 	return db
-}
-
-func envRedisAddr() string {
-	const defaultAddr = "127.0.0.1:6379"
-
-	addr, ok := os.LookupEnv("REDIS_ADDR")
-	if !ok || addr == "" {
-		return defaultAddr
-	}
-
-	return addr
 }
 
 func envPasswordKeyAES() string {
@@ -66,12 +92,15 @@ func mw(next http.Handler) http.Handler {
 func main() {
 	redisAddr := envRedisAddr()
 	redisDb := envRedisDb()
+	redisPass := envRedisPassword()
 	passwordKey := envPasswordKeyAES()
 
-	repoClip := redisclipboard.New(redisAddr, redisDb)
-	repoUser := redisuser.New(redisAddr, redisDb)
+	// เรียกใช้ redis
+	repoClip := redisclipboard.New(redisAddr, redisDb, redisPass)
+	repoUser := redisuser.New(redisAddr, redisDb, redisPass)
 	servicePassword := service.NewServicePassword(passwordKey)
 
+	// เรียก handler โดยที่ผ่านการเรียก redis ไปแล้ว
 	hClip := handlerclipboard.NewClipboard(repoClip)
 	hUser := handleruser.NewUser(repoUser, servicePassword)
 
@@ -96,6 +125,7 @@ func main() {
 	r.HandleFunc("/users/update/username/{user-id}", hUser.UpdateUsername).Methods(http.MethodPatch)
 	r.HandleFunc("/users/update/password/{user-id}", hUser.UpdatePassword).Methods(http.MethodPatch)
 	r.HandleFunc("/users/delete/{user-id}", hUser.DeleteUser).Methods(http.MethodDelete)
+	r.HandleFunc("/whoami", hUser.Whoami)
 
 	err := http.ListenAndServe(":8000", r)
 	if err != nil {

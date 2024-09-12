@@ -8,12 +8,14 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/model"
 	"github.com/eymyong/drop/repo"
+	"github.com/eymyong/drop/repo/redisuser"
 )
 
 type HandlerUser struct {
@@ -21,10 +23,7 @@ type HandlerUser struct {
 	servicePassword service.Password
 }
 
-func NewUser(
-	repoUser repo.RepositoryUser,
-	servicePassword service.Password,
-) *HandlerUser {
+func NewUser(repoUser repo.RepositoryUser, servicePassword service.Password) *HandlerUser {
 	return &HandlerUser{
 		repoUser:        repoUser,
 		servicePassword: servicePassword,
@@ -155,7 +154,8 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 	passwordBase64, err := h.repoUser.GetPassword(ctx, req.Username)
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "login failed",
+			"error":  "login failed",
+			"reason": err.Error(),
 		})
 
 		return
@@ -164,7 +164,8 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 	password, err := h.servicePassword.DecryptBase64(string(passwordBase64))
 	if err != nil {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "login failed",
+			"error":  "login failed",
+			"reason": err.Error(),
 		})
 
 		return
@@ -172,7 +173,31 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 
 	if password != req.Password {
 		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":  "login failed",
+			"reason": err.Error(),
+		})
+
+		return
+	}
+	// implemented create jwt
+
+	id, err := h.repoUser.GetByUsername(ctx, req.Username)
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			// ควรแจ้งยังไงง //
 			"error": "login failed",
+			"reson": err.Error(),
+		})
+
+		return
+	}
+
+	token, err := redisuser.NewJwtTest(id, req.Username, []byte(redisuser.JwtKey))
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			// ควรแจ้งยังไงง //
+			"error":  "create token failed",
+			"reason": err.Error(),
 		})
 
 		return
@@ -181,6 +206,7 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 	sendJson(w, http.StatusOK, map[string]interface{}{
 		"success":  "ok",
 		"username": req.Username,
+		"token":    token,
 	})
 }
 
@@ -285,4 +311,35 @@ func (h *HandlerUser) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJson(w, http.StatusOK, "deleted userId: "+id)
+}
+
+func (h *HandlerUser) Whoami(w http.ResponseWriter, r *http.Request) {
+	dataByte, err := readBody(r)
+	if err != nil {
+		sendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "readbody err",
+			"reson": err.Error(),
+		})
+	}
+
+	token := string(dataByte)
+
+	claims, err := redisuser.VerifyJwt(token, []byte(redisuser.JwtKey))
+	if err != nil {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	if mapClaims, ok := claims.(jwt.MapClaims); ok {
+		id := mapClaims["jti"]
+		sendJson(w, http.StatusOK, id)
+
+	} else {
+		sendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":  "claims is not JWT mapClaims",
+			"claims": claims,
+		})
+	}
+
 }
