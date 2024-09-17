@@ -12,9 +12,9 @@ import (
 )
 
 func TestJWT(t *testing.T) {
-	t.Run("Test creating/verifying JWT tokens", testJWT)
-	t.Run("Test JWT middleware with invalid JWT token", testMw_InvalidTokenJWT)
-	t.Run("Test JWT middleware with valid JWT token", testMw_ValidTokenJWT)
+	t.Run("Creating and verifying JWT tokens", testJWT)
+	t.Run("JWT middleware with invalid JWT token", testMw_InvalidTokenJWT)
+	t.Run("JWT middleware with valid JWT token", testMw_ValidTokenJWT)
 }
 
 func testJWT(t *testing.T) {
@@ -96,7 +96,7 @@ func testMw_InvalidTokenJWT(t *testing.T) {
 	authenticator := auth.New(testSecret)
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		apiutils.SendJson(w, 200, nil)
+		apiutils.SendJson(w, http.StatusOK, "ok")
 	}
 
 	next := http.HandlerFunc(handler)
@@ -127,11 +127,11 @@ func testMw_ValidTokenJWT(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		userID := r.Header.Get(auth.AuthHeaderUserId)
 		if userID != testUserId {
-			apiutils.SendJson(w, http.StatusInternalServerError, nil)
+			apiutils.SendJson(w, http.StatusInternalServerError, "unauthorized: bad user-id")
 			return
 		}
 
-		apiutils.SendJson(w, http.StatusOK, nil)
+		apiutils.SendJson(w, http.StatusOK, "ok")
 	}
 
 	next := http.HandlerFunc(handler)
