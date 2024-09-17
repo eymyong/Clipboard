@@ -13,8 +13,8 @@ import (
 
 func TestJWT(t *testing.T) {
 	t.Run("Creating and verifying JWT tokens", testJWT)
-	t.Run("JWT middleware with invalid JWT token", testMw_InvalidTokenJWT)
-	t.Run("JWT middleware with valid JWT token", testMw_ValidTokenJWT)
+	t.Run("JWT middleware with invalid JWT token", testMiddleware_InvalidTokenJWT)
+	t.Run("JWT middleware with valid JWT token", testMiddleware_ValidTokenJWT)
 }
 
 func testJWT(t *testing.T) {
@@ -91,7 +91,7 @@ func testJWT(t *testing.T) {
 	}
 }
 
-func testMw_InvalidTokenJWT(t *testing.T) {
+func testMiddleware_InvalidTokenJWT(t *testing.T) {
 	testSecret := "test-secret"
 	authenticator := auth.New(testSecret)
 
@@ -117,7 +117,7 @@ func testMw_InvalidTokenJWT(t *testing.T) {
 	}
 }
 
-func testMw_ValidTokenJWT(t *testing.T) {
+func testMiddleware_ValidTokenJWT(t *testing.T) {
 	testSecret := "test-secret"
 	testIss := "test-iss"
 	testUserId := "test-user-id"
@@ -128,6 +128,12 @@ func testMw_ValidTokenJWT(t *testing.T) {
 		userID := r.Header.Get(auth.AuthHeaderUserId)
 		if userID != testUserId {
 			apiutils.SendJson(w, http.StatusInternalServerError, "unauthorized: bad user-id")
+			return
+		}
+
+		iss := r.Header.Get(auth.AuthHeaderIssuer)
+		if iss != testIss {
+			apiutils.SendJson(w, http.StatusInternalServerError, "unauthorized: bad iss")
 			return
 		}
 
