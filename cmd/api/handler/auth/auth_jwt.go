@@ -1,9 +1,7 @@
 package auth
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -34,63 +32,6 @@ func New(secretKey string) *AuthenticatorJWT {
 	}
 }
 
-// For jwt embedded in request body
-func (a *AuthenticatorJWT) AuthMiddlewareBody(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		buf := bytes.NewBuffer(nil)
-		_, err := io.Copy(buf, r.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "error reading body: %s", err.Error())
-			return
-		}
-
-		defer r.Body.Close()
-
-		tokenStr := buf.String()
-		claims, err := ExtractClaims(tokenStr, []byte(a.secretKey))
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("error verifying JWT token: " + err.Error()))
-			return
-		}
-
-		c, ok := claims.(jwt.MapClaims)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt type: '%s', expecting '%s'", reflect.TypeOf(claims).String(), reflect.TypeOf(c).String())
-			return
-		}
-
-		id, ok := c["jti"].(string)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt id: '%s', epxecting '%s'", reflect.TypeOf(c["jti"]).String(), reflect.TypeOf(id).String())
-			return
-		}
-
-		iss, ok := c["iss"].(string)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt iss: '%s', expecting '%s'", reflect.TypeOf(c["iss"]).String(), reflect.TypeOf(iss).String())
-			return
-		}
-
-		exp, ok := c["exp"].(float64)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt exp: '%s', expecting '%s'", reflect.TypeOf(c["exp"]).String(), reflect.TypeOf(exp).String())
-			return
-		}
-
-		r.Header.Set(AuthHeaderUserId, id)
-		r.Header.Set(AuthHeaderIssuer, iss)
-		r.Header.Set(AuthHeaderExpiry, fmt.Sprintf("%f", exp))
-
-		next.ServeHTTP(w, r)
-	})
-}
-
 // For jwt embedded in request header
 func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -116,24 +57,45 @@ func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler 
 			return
 		}
 
-		id, ok := c["jti"].(string)
+		idClaims, ok := c["jti"]
 		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt id: '%s', epxecting '%s'", reflect.TypeOf(c["jti"]).String(), reflect.TypeOf(id).String())
+			fmt.Fprintf(w, "null value at key jti")
 			return
 		}
 
-		iss, ok := c["iss"].(string)
+		id, ok := idClaims.(string)
 		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt iss: '%s', expecting '%s'", reflect.TypeOf(c["iss"]).String(), reflect.TypeOf(iss).String())
+			fmt.Fprintf(w, "unexpected jwt jti: '%s', expecting '%s'", reflect.TypeOf(idClaims).String(), reflect.TypeOf(id).String())
 			return
 		}
 
-		exp, ok := c["exp"].(float64)
+		issClaims, ok := c["iss"]
 		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt exp: '%s', expecting '%s'", reflect.TypeOf(c["exp"]).String(), reflect.TypeOf(exp).String())
+			fmt.Fprintf(w, "null value at key jti")
+			return
+		}
+
+		iss, ok := issClaims.(string)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "unexpected jwt iss: '%s', expecting '%s'", reflect.TypeOf(issClaims).String(), reflect.TypeOf(iss).String())
+			return
+		}
+
+		expClaims, ok := c["exp"]
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "null value at key exp")
+			return
+		}
+
+		exp, ok := expClaims.(float64)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "unexpected jwt exp: '%s', expecting '%s'", reflect.TypeOf(expClaims).String(), reflect.TypeOf(exp).String())
 			return
 		}
 
