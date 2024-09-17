@@ -20,6 +20,7 @@ const (
 
 type Authenticator interface {
 	NewTokenJWT(iss, id string) (token string, exp time.Time, err error)
+	VerifyTokenJWT(token string) (jwt.Claims, error)
 }
 
 type AuthenticatorJWT struct {
@@ -43,7 +44,7 @@ func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler 
 		}
 
 		tokenStr = strings.Replace(tokenStr, "Bearer ", "", 1)
-		claims, err := ExtractClaims(tokenStr, []byte(a.secretKey))
+		claims, err := verifyTokenJWT(tokenStr, []byte(a.secretKey))
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("error verifying JWT token: " + err.Error()))
@@ -57,45 +58,10 @@ func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler 
 			return
 		}
 
-		idClaims, ok := c["jti"]
-		if !ok {
+		id, iss, exp, err := ExtractClaims(c)
+		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "null value at key jti")
-			return
-		}
-
-		id, ok := idClaims.(string)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt jti: '%s', expecting '%s'", reflect.TypeOf(idClaims).String(), reflect.TypeOf(id).String())
-			return
-		}
-
-		issClaims, ok := c["iss"]
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "null value at key jti")
-			return
-		}
-
-		iss, ok := issClaims.(string)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt iss: '%s', expecting '%s'", reflect.TypeOf(issClaims).String(), reflect.TypeOf(iss).String())
-			return
-		}
-
-		expClaims, ok := c["exp"]
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "null value at key exp")
-			return
-		}
-
-		exp, ok := expClaims.(float64)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, "unexpected jwt exp: '%s', expecting '%s'", reflect.TypeOf(expClaims).String(), reflect.TypeOf(exp).String())
+			w.Write([]byte(err.Error()))
 			return
 		}
 
@@ -108,10 +74,22 @@ func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler 
 }
 
 func (a *AuthenticatorJWT) NewTokenJWT(iss, id string) (token string, exp time.Time, err error) {
-	return NewTokenJWT(iss, id, []byte(a.secretKey))
+	if len(a.secretKey) == 0 {
+		return "", time.Time{}, errors.New("null secretKey")
+	}
+
+	return newTokenJWT(iss, id, []byte(a.secretKey))
 }
 
-func NewTokenJWT(iss, id string, key []byte) (token string, exp time.Time, err error) {
+func (a *AuthenticatorJWT) VerifyTokenJWT(token string) (jwt.Claims, error) {
+	if len(a.secretKey) == 0 {
+		return nil, errors.New("null secretKey")
+	}
+
+	return verifyTokenJWT(token, []byte(a.secretKey))
+}
+
+func newTokenJWT(iss, id string, key []byte) (token string, exp time.Time, err error) {
 	exp = time.Now().Add(24 * time.Hour).Local()
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
 		Id:        id,
@@ -128,7 +106,7 @@ func NewTokenJWT(iss, id string, key []byte) (token string, exp time.Time, err e
 	return token, exp, nil
 }
 
-func ExtractClaims(tokenStr string, key []byte) (jwt.Claims, error) {
+func verifyTokenJWT(tokenStr string, key []byte) (jwt.Claims, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		return key, nil
 	})
@@ -137,4 +115,44 @@ func ExtractClaims(tokenStr string, key []byte) (jwt.Claims, error) {
 	}
 
 	return token.Claims, nil
+}
+
+func ExtractClaims(c jwt.MapClaims) (id string, iss string, exp float64, err error) {
+	idClaims, ok := c["jti"]
+	if !ok {
+		err = errors.New("null value at key 'jti'")
+		return
+	}
+
+	id, ok = idClaims.(string)
+	if !ok {
+		err = fmt.Errorf("unexpected jwt jti: '%s', expecting '%s'", reflect.TypeOf(idClaims).String(), reflect.TypeOf(id).String())
+		return
+	}
+
+	issClaims, ok := c["iss"]
+	if !ok {
+		err = errors.New("null value at key 'iss'")
+		return
+	}
+
+	iss, ok = issClaims.(string)
+	if !ok {
+		err = fmt.Errorf("unexpected jwt iss: '%s', expecting '%s'", reflect.TypeOf(issClaims).String(), reflect.TypeOf(iss).String())
+		return
+	}
+
+	expClaims, ok := c["exp"]
+	if !ok {
+		err = errors.New("null value at key 'exp'")
+		return
+	}
+
+	exp, ok = expClaims.(float64)
+	if !ok {
+		err = fmt.Errorf("unexpected jwt exp: '%s', expecting '%s'", reflect.TypeOf(expClaims).String(), reflect.TypeOf(exp).String())
+		return
+	}
+
+	return
 }
