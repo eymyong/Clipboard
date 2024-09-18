@@ -37,6 +37,7 @@ func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
 			"error":  "failed to read body",
 			"reason": err.Error(),
 		})
+
 		return
 	}
 
@@ -44,6 +45,7 @@ func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
 		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error": "empty body",
 		})
+
 		return
 	}
 
@@ -60,6 +62,7 @@ func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
 			"error":  "failed to create clipboard",
 			"reason": err.Error(),
 		})
+
 		return
 	}
 
@@ -142,6 +145,7 @@ func (h *HandlerClipboard) UpdateClipById(w http.ResponseWriter, r *http.Request
 			"error":  "failed to read body",
 			"reason": err.Error(),
 		})
+
 		return
 	}
 
@@ -149,6 +153,7 @@ func (h *HandlerClipboard) UpdateClipById(w http.ResponseWriter, r *http.Request
 		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error": "empty body",
 		})
+
 		return
 	}
 
@@ -160,6 +165,7 @@ func (h *HandlerClipboard) UpdateClipById(w http.ResponseWriter, r *http.Request
 		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error": "missing id",
 		})
+
 		return
 	}
 
@@ -170,6 +176,7 @@ func (h *HandlerClipboard) UpdateClipById(w http.ResponseWriter, r *http.Request
 			"error":  "failed to update",
 			"reason": err.Error(),
 		})
+
 		return
 	}
 
@@ -195,6 +202,7 @@ func (h *HandlerClipboard) DeleteClip(w http.ResponseWriter, r *http.Request) {
 		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
 			"error": "missing id",
 		})
+
 		return
 	}
 
@@ -205,6 +213,7 @@ func (h *HandlerClipboard) DeleteClip(w http.ResponseWriter, r *http.Request) {
 			"error":  "failed to delete",
 			"reason": err.Error(),
 		})
+
 		return
 	}
 

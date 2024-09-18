@@ -44,6 +44,8 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 			"error":  "failed to read body",
 			"reason": err.Error(),
 		})
+
+		return
 	}
 
 	var req requestRegister
@@ -81,6 +83,8 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 			"error":  "failed to encrypt password",
 			"reason": err.Error(),
 		})
+
+		return
 	}
 
 	user := model.User{
@@ -175,6 +179,8 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 			"error":  "failed to create login token",
 			"reason": err.Error(),
 		})
+
+		return
 	}
 
 	apiutils.SendJson(w, http.StatusOK, map[string]interface{}{
