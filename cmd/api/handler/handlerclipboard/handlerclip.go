@@ -80,7 +80,7 @@ func (h *HandlerClipboard) GetAllClips(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	clipboards, err := h.repoClipboard.GetAll(ctx)
+	clipboards, err := h.repoClipboard.GetAllUserClipboards(ctx, userId)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to get all todos",
@@ -90,17 +90,7 @@ func (h *HandlerClipboard) GetAllClips(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var results []model.Clipboard
-	for i := range clipboards {
-		clip := clipboards[i]
-		if clip.UserId != userId {
-			continue
-		}
-
-		results = append(results, clip)
-	}
-
-	apiutils.SendJson(w, http.StatusOK, results)
+	apiutils.SendJson(w, http.StatusOK, clipboards)
 }
 
 func (h *HandlerClipboard) GetClipById(w http.ResponseWriter, r *http.Request) {
@@ -123,18 +113,13 @@ func (h *HandlerClipboard) GetClipById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := context.Background()
-	clipboard, err := h.repoClipboard.GetById(ctx, id)
+	clipboard, err := h.repoClipboard.GetUserClipboard(ctx, id, userId)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  fmt.Sprintf("failed to get todo %s", id),
 			"reason": err.Error(),
 		})
 
-		return
-	}
-
-	if clipboard.UserId != userId {
-		apiutils.SendJson(w, http.StatusNotFound, nil)
 		return
 	}
 
@@ -167,6 +152,8 @@ func (h *HandlerClipboard) UpdateClipById(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	newText := string(b)
+
 	vars := mux.Vars(r)
 	id := vars["clipboard-id"]
 	if id == "" {
@@ -177,18 +164,7 @@ func (h *HandlerClipboard) UpdateClipById(w http.ResponseWriter, r *http.Request
 	}
 
 	ctx := context.Background()
-	clip, err := h.repoClipboard.GetById(ctx, id)
-	if err != nil {
-		apiutils.SendJson(w, http.StatusNotFound, nil)
-		return
-	}
-
-	if clip.UserId != userId {
-		apiutils.SendJson(w, http.StatusNotFound, nil)
-		return
-	}
-
-	err = h.repoClipboard.Update(ctx, id, string(b))
+	err = h.repoClipboard.UpdateUserClipboard(ctx, id, userId, newText)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to update",
@@ -223,18 +199,7 @@ func (h *HandlerClipboard) DeleteClip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	clip, err := h.repoClipboard.GetById(ctx, id)
-	if err != nil {
-		apiutils.SendJson(w, http.StatusNotFound, nil)
-		return
-	}
-
-	if clip.UserId != userId {
-		apiutils.SendJson(w, http.StatusNotFound, nil)
-		return
-	}
-
-	err = h.repoClipboard.Delete(ctx, id)
+	err := h.repoClipboard.DeleteUserClipboard(ctx, id, userId)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to delete",
@@ -244,6 +209,6 @@ func (h *HandlerClipboard) DeleteClip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiutils.SendJson(w, http.StatusOK, map[string]interface{}{
-		"sucess": fmt.Sprintf("delete to id: %s", id),
+		"sucess": fmt.Sprintf("delete clipboard '%s'", id),
 	})
 }
