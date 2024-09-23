@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/eymyong/drop/cmd/api/handler/apiutils"
 )
@@ -17,6 +18,27 @@ func DefaultLogger(next http.Handler) http.Handler {
 		log.Printf("[%s] %s %s \"%s\"", defaultPrefix, r.Method, r.URL, body)
 		next.ServeHTTP(w, r)
 	})
+}
+
+type logOutputV1 struct {
+	prefix  string
+	Time    time.Time         `json:"time"`
+	Method  string            `json:"method"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+	Body    string            `json:"body,omitempty"`
+}
+
+func (l *logOutputV1) string() string {
+	return fmt.Sprintf("[%s] %s %s %v", l.prefix, l.Method, l.URL, l.Headers)
+}
+
+func (l *logOutputV1) stringWithBody() string {
+	return fmt.Sprintf("[%s] %s %s %v \"%s\"", l.prefix, l.Method, l.URL, l.Headers, string(l.Body))
+}
+
+func (l *logOutputV1) MarshalJSON() ([]byte, error) {
+	return json.Marshal(l)
 }
 
 // NewLoggerV1 returns a new middleware (mux.MiddlewareFunc)
@@ -33,6 +55,8 @@ func NewLoggerV1(
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			now := time.Now()
+
 			var body []byte
 			var err error
 
@@ -48,28 +72,28 @@ func NewLoggerV1(
 				headers[h] = r.Header.Get(h)
 			}
 
+			output := logOutputV1{
+				prefix:  prefix,
+				Time:    now,
+				Method:  r.Method,
+				URL:     r.URL.String(),
+				Headers: headers,
+				Body:    string(body),
+			}
+
 			if !jsonOutput {
+				s := output.string()
 				if logBody {
-					log.Printf("[%s] %s %s %v \"%s\"", prefix, r.Method, r.URL, headers, body)
-				} else {
-					log.Printf("[%s] %s %s %v", prefix, r.Method, r.URL, headers)
+					s = output.stringWithBody()
 				}
+
+				log.Println(s)
 
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			m := map[string]interface{}{
-				"url":     fmt.Sprintf("%s %s", r.Method, r.URL),
-				"headers": headers,
-			}
-
-			if logBody {
-				m["body"] = string(body)
-			}
-
-			fmt.Println(marshalJson(m, prefix))
-
+			fmt.Println(marshalJson(output, prefix))
 			next.ServeHTTP(w, r)
 		})
 	}
