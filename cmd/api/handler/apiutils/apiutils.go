@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/eymyong/drop/cmd/api/handler/auth"
+	"github.com/eymyong/drop/cmd/api/handler/middlewares/auth"
 )
 
 func SendJson(w http.ResponseWriter, status int, data interface{}) {

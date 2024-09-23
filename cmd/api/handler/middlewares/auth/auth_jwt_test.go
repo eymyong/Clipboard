@@ -8,7 +8,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 
 	"github.com/eymyong/drop/cmd/api/handler/apiutils"
-	"github.com/eymyong/drop/cmd/api/handler/auth"
+	"github.com/eymyong/drop/cmd/api/handler/middlewares/auth"
 )
 
 func TestJWT(t *testing.T) {

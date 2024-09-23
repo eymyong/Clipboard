@@ -26,7 +26,7 @@ func envConfig() config {
 	redisDbEnvStr, _ := os.LookupEnv("REDIS_DB")
 	redisDbEnv, err := strconv.Atoi(redisDbEnvStr)
 	if err != nil {
-		panic("bad redis db config: " + redisDbEnvStr)
+		redisDbEnv = 0
 	}
 
 	redisDb = redisDbEnv

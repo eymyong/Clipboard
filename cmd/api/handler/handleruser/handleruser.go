@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/eymyong/drop/cmd/api/handler/apiutils"
-	"github.com/eymyong/drop/cmd/api/handler/auth"
+	"github.com/eymyong/drop/cmd/api/handler/middlewares/auth"
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/model"
 	"github.com/eymyong/drop/repo"

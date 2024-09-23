@@ -6,9 +6,10 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/eymyong/drop/cmd/api/handler/auth"
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
 	"github.com/eymyong/drop/cmd/api/handler/handleruser"
+	"github.com/eymyong/drop/cmd/api/handler/middlewares"
+	"github.com/eymyong/drop/cmd/api/handler/middlewares/auth"
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/repo"
 	"github.com/eymyong/drop/repo/redisclipboard"
@@ -30,6 +31,8 @@ func main() {
 	handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
 
 	r := mux.NewRouter() // Main router
+	r.Use(middlewares.Logger)
+
 	r.HandleFunc("/users/register", handlerUser.Register).Methods(http.MethodPost)
 	r.HandleFunc("/users/login", handlerUser.Login).Methods(http.MethodPost)
 
