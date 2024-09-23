@@ -31,7 +31,15 @@ func main() {
 	handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
 
 	r := mux.NewRouter() // Main router
-	r.Use(middlewares.Logger)
+	r.Use(middlewares.NewLoggerV1(
+		"clip-v2.3.6",
+		[]string{
+			"Authorization",
+			"content-type",
+		},
+		true,
+		true,
+	))
 
 	r.HandleFunc("/users/register", handlerUser.Register).Methods(http.MethodPost)
 	r.HandleFunc("/users/login", handlerUser.Login).Methods(http.MethodPost)
