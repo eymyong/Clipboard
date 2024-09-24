@@ -12,12 +12,18 @@ type RepositoryClipboard interface {
 	GetById(ctx context.Context, id string) (model.Clipboard, error)
 	Update(ctx context.Context, id string, newdata string) error
 	Delete(ctx context.Context, id string) error
+
+	GetAllUserClipboards(ctx context.Context, userId string) ([]model.Clipboard, error)
+	GetUserClipboard(ctx context.Context, id string, userId string) (model.Clipboard, error)
+	UpdateUserClipboard(ctx context.Context, id string, userId string, text string) error
+	DeleteUserClipboard(ctx context.Context, id string, userId string) error
 }
 
 type RepositoryUser interface {
 	Create(ctx context.Context, user model.User) (model.User, error)
 	GetPassword(ctx context.Context, username string) ([]byte, error)
 	GetById(ctx context.Context, id string) (model.User, error)
+	GetUserId(ctx context.Context, id string) (string, error)
 	UpdateUsername(ctx context.Context, id string, newUsername string) error
 	UpdatePassword(ctx context.Context, id string, newPassword string) error
 	Delete(ctx context.Context, id string) error
