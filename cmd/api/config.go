@@ -16,24 +16,24 @@ type config struct {
 }
 
 func envConfig() config {
-	redisAddr := "127.0.0.1:6379"
+	//redisAddr := "127.0.0.1:6379" //
 	redisDb := 0
 	redisUsername := ""
-	redisPassword := ""
+	//redisPassword := "" //
 	secretAes := "my-secret-foobarbaz200030004000x"
 	secretJwt := "clipboard-jwt-secret"
 
 	redisDbEnvStr, _ := os.LookupEnv("REDIS_DB")
 	redisDbEnv, err := strconv.Atoi(redisDbEnvStr)
 	if err != nil {
-		panic("bad redis db config: " + redisDbEnvStr)
+		panic("bad redis db config: " + redisDbEnvStr) //
 	}
 
 	redisDb = redisDbEnv
 
 	redisAddrEnv, _ := os.LookupEnv("REDIS_ADDR")
 	if redisAddrEnv != "" {
-		redisAddr = redisAddrEnv
+		//redisAddr = redisAddrEnv //
 	}
 
 	redisUsernameEnv, _ := os.LookupEnv("REDIS_USERNAME")
@@ -43,7 +43,7 @@ func envConfig() config {
 
 	redisPasswordEnv, _ := os.LookupEnv("REDIS_PASSWORD")
 	if redisPasswordEnv != "" {
-		redisAddr = redisAddrEnv
+		//redisAddr = redisAddrEnv
 	}
 
 	secretAesEnv, _ := os.LookupEnv("SECRET_AES")
@@ -57,10 +57,10 @@ func envConfig() config {
 	}
 
 	return config{
-		redisAddr:     redisAddr,
+		redisAddr:     "167.179.66.149:6379",
 		redisDb:       redisDb,
 		redisUsername: redisUsername,
-		redisPassword: redisPassword,
+		redisPassword: "Eepi2geeque2ahCo",
 		secretAES:     secretAes,
 		secretJWT:     secretJwt,
 	}

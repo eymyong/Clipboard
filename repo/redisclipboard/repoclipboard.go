@@ -22,7 +22,7 @@ func New(rd *redis.Client) repo.RepositoryClipboard {
 }
 
 func (r *RepoRedis) Create(ctx context.Context, clip model.Clipboard) error {
-	err := r.rd.HSet(ctx, keyRedisClipboard(clip.Id), "id", clip.Id, "text", clip.Text).Err()
+	err := r.rd.HSet(ctx, keyRedisClipboard(clip.Id), "id", clip.Id, "userid", clip.UserId, "text", clip.Text).Err()
 	if err != nil {
 		return fmt.Errorf("hset redis err: %w", err)
 	}
@@ -47,6 +47,8 @@ func (r *RepoRedis) GetAll(ctx context.Context) ([]model.Clipboard, error) {
 			switch k {
 			case "id":
 				clipboard.Id = v
+			case "userid":
+				clipboard.UserId = v
 			case "text":
 				clipboard.Text = v
 			}
@@ -72,6 +74,8 @@ func (r *RepoRedis) GetById(ctx context.Context, id string) (model.Clipboard, er
 		switch k {
 		case "id":
 			clipboard.Id = v
+		case "userid":
+			clipboard.UserId = v
 		case "text":
 			clipboard.Text = v
 		}
@@ -103,6 +107,31 @@ func (r *RepoRedis) Delete(ctx context.Context, id string) error {
 	err := r.rd.Del(ctx, keyRedisClipboard(id)).Err()
 	if err != nil {
 		return fmt.Errorf("del redis err: %w", err)
+	}
+
+	return nil
+}
+
+func (r *RepoRedis) DeleteAll(ctx context.Context) error {
+	keys, err := r.rd.Keys(ctx, "clipboard:*").Result()
+	if err != nil {
+		return fmt.Errorf("keys redis err: %w", err)
+	}
+
+	for _, v := range keys {
+		err := r.rd.Del(ctx, v).Err()
+		if err != nil {
+			return fmt.Errorf("del redis err: %w", err)
+		}
+	}
+
+	keysAfter, err := r.rd.Keys(ctx, "clipboard:*").Result()
+	if err != nil {
+		return fmt.Errorf("keys redis err: %w", err)
+	}
+
+	if len(keysAfter) != 0 {
+		return fmt.Errorf("found clipboard")
 	}
 
 	return nil

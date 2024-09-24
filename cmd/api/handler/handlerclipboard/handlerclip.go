@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/eymyong/drop/cmd/api/handler/apiutils"
+	"github.com/eymyong/drop/cmd/api/handler/auth"
 	"github.com/eymyong/drop/model"
 	"github.com/eymyong/drop/repo"
 	"github.com/google/uuid"
@@ -21,6 +22,14 @@ func NewClipboard(repoClipboard repo.RepositoryClipboard) *HandlerClipboard {
 }
 
 func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
+	userId := auth.GetUserIdFromHeader(r.Header)
+	if userId == "" {
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "missing user-id",
+		})
+		return
+	}
+
 	b, err := apiutils.ReadBody(r)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
@@ -38,8 +47,9 @@ func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clipboard := model.Clipboard{
-		Id:   uuid.NewString(),
-		Text: string(b),
+		Id:     uuid.NewString(),
+		UserId: userId,
+		Text:   string(b),
 	}
 	ctx := context.Background()
 	err = h.repoClipboard.Create(ctx, clipboard)
@@ -58,6 +68,8 @@ func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HandlerClipboard) GetAllClips(w http.ResponseWriter, r *http.Request) {
+	//userId := auth.GetUserIdFromHeader(r.Header)
+
 	ctx := context.Background()
 	clipboards, err := h.repoClipboard.GetAll(ctx)
 	if err != nil {
@@ -67,6 +79,14 @@ func (h *HandlerClipboard) GetAllClips(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	// results := []model.Clipboard{}
+
+	// for _, v := range clipboards {
+	// 	if v.UserId == userId {
+	// 		results = append(results, v)
+	// 	}
+	// }
 
 	apiutils.SendJson(w, http.StatusOK, clipboards)
 }
@@ -156,5 +176,21 @@ func (h *HandlerClipboard) DeleteClip(w http.ResponseWriter, r *http.Request) {
 
 	apiutils.SendJson(w, http.StatusOK, map[string]interface{}{
 		"sucess": fmt.Sprintf("delete to id: %s", id),
+	})
+}
+
+func (h *HandlerClipboard) DeleteAllClip(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	err := h.repoClipboard.DeleteAll(ctx)
+	if err != nil {
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":  "failed to delete",
+			"reason": err.Error(),
+		})
+		return
+	}
+
+	apiutils.SendJson(w, http.StatusOK, map[string]interface{}{
+		"sucess": "ok",
 	})
 }

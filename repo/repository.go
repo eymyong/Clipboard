@@ -12,6 +12,7 @@ type RepositoryClipboard interface {
 	GetById(ctx context.Context, id string) (model.Clipboard, error)
 	Update(ctx context.Context, id string, newdata string) error
 	Delete(ctx context.Context, id string) error
+	DeleteAll(ctx context.Context) error
 }
 
 type RepositoryUser interface {

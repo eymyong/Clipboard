@@ -1,8 +1,9 @@
 package model
 
 type Clipboard struct {
-	Id   string
-	Text string
+	Id     string
+	UserId string
+	Text   string
 }
 
 type User struct {
