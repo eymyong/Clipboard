@@ -21,6 +21,15 @@ func NewClipboard(repoClipboard repo.RepositoryClipboard) *HandlerClipboard {
 	return &HandlerClipboard{repoClipboard: repoClipboard}
 }
 
+func RegisterRoutesClipboardAPI(r *mux.Router, h *HandlerClipboard) {
+	r.HandleFunc("/create", h.CreateClip).Methods(http.MethodPost)
+	r.HandleFunc("/get-all", h.GetAllClips).Methods(http.MethodGet)
+	r.HandleFunc("/get/{clipboard-id}", h.GetClipById).Methods(http.MethodGet)
+	r.HandleFunc("/update/{clipboard-id}", h.UpdateClipById).Methods(http.MethodPatch)
+	r.HandleFunc("/delete/{clipboard-id}", h.DeleteClip).Methods(http.MethodDelete)
+	r.HandleFunc("/delete-all", h.DeleteAllClip).Methods(http.MethodDelete)
+}
+
 func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
 	userId := auth.GetUserIdFromHeader(r.Header)
 	if userId == "" {
@@ -68,7 +77,7 @@ func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HandlerClipboard) GetAllClips(w http.ResponseWriter, r *http.Request) {
-	//userId := auth.GetUserIdFromHeader(r.Header)
+	// userId := auth.GetUserIdFromHeader(r.Header)
 
 	ctx := context.Background()
 	clipboards, err := h.repoClipboard.GetAll(ctx)

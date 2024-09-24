@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 
 	"github.com/eymyong/drop/cmd/api/handler/apiutils"
 	"github.com/eymyong/drop/cmd/api/handler/auth"
@@ -29,6 +30,13 @@ func NewUser(
 		servicePassword: servicePassword,
 		authenticator:   authenticator,
 	}
+}
+
+func RegisterUserAPI(r *mux.Router, h *HandlerUser) {
+	r.HandleFunc("/get/{user-id}", h.GetUserById).Methods(http.MethodGet)
+	r.HandleFunc("/update/username/{user-id}", h.UpdateUsername).Methods(http.MethodPatch)
+	r.HandleFunc("/update/password/{user-id}", h.UpdatePassword).Methods(http.MethodPatch)
+	r.HandleFunc("/delete/{user-id}", h.DeleteUser).Methods(http.MethodDelete)
 }
 
 // TODO ถ้ามี username แล้วจะ register ไม่ได้ //

@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/eymyong/drop/cmd/api/handler"
 	"github.com/eymyong/drop/cmd/api/handler/auth"
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
 	"github.com/eymyong/drop/cmd/api/handler/handleruser"
@@ -13,6 +12,7 @@ import (
 	"github.com/eymyong/drop/repo"
 	"github.com/eymyong/drop/repo/redisclipboard"
 	"github.com/eymyong/drop/repo/redisuser"
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -30,10 +30,28 @@ func main() {
 	handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
 	// handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
 
-	r := handler.NewServer(handlerUser, handlerClip, authenticator)
+	r := newServer(handlerUser, handlerClip, authenticator)
 
 	err := http.ListenAndServe(":8000", r)
 	if err != nil {
 		log.Println("server error:", err)
 	}
+}
+
+func newServer(handlerUser *handleruser.HandlerUser, handlerClip *handlerclipboard.HandlerClipboard, auth *auth.AuthenticatorJWT) http.Handler {
+	r := mux.NewRouter() // Main router
+
+	routerClip := r.PathPrefix("/clipboards").Subrouter()
+	routerUsers := r.PathPrefix("/users").Subrouter()
+
+	r.HandleFunc("/register", handlerUser.Register).Methods(http.MethodPost)
+	r.HandleFunc("/login", handlerUser.Login).Methods(http.MethodPost)
+
+	routerClip.Use(auth.AuthMiddlewareHeader)
+	routerUsers.Use(auth.AuthMiddlewareHeader)
+
+	handleruser.RegisterUserAPI(routerClip, handlerUser)
+	handlerclipboard.RegisterRoutesClipboardAPI(routerClip, handlerClip)
+
+	return r
 }

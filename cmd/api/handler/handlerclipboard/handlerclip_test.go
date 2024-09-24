@@ -9,11 +9,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gorilla/mux"
+	"github.com/redis/go-redis/v9"
+
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
 	"github.com/eymyong/drop/model"
 	"github.com/eymyong/drop/repo"
 	"github.com/eymyong/drop/repo/redisclipboard"
-	"github.com/redis/go-redis/v9"
 )
 
 func flush(rd *redis.Client) {
@@ -56,10 +58,6 @@ func Test_CreateClipHappy(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-
-	// if result.Created.Id != "" {
-	// 	t.Error("response body:", result)
-	// }
 
 	t.Log("response body:", result)
 
@@ -145,7 +143,6 @@ func Test_GetAllClipHappy(t *testing.T) {
 	}
 
 	// flush(rd)
-
 }
 
 func Test_GetClipByIDHappy(t *testing.T) {
@@ -156,14 +153,18 @@ func Test_GetClipByIDHappy(t *testing.T) {
 	repo := redisclipboard.New(rd)
 	handlerClipboard := handlerclipboard.NewClipboard(repo)
 
-	clipExpexted := model.Clipboard{
+	r := mux.NewRouter()
+	routerClip := r.PathPrefix("/clipboards").Subrouter()
+	handlerclipboard.RegisterRoutesClipboardAPI(routerClip, handlerClipboard)
+
+	clipExpected := model.Clipboard{
 		Id:     "2",
 		UserId: "zzz",
 		Text:   "two",
 	}
 
 	ctx := context.Background()
-	err := repo.Create(ctx, clipExpexted)
+	err := repo.Create(ctx, clipExpected)
 	if err != nil {
 		t.Errorf("unexpected err: %s", err.Error())
 		return
@@ -171,18 +172,17 @@ func Test_GetClipByIDHappy(t *testing.T) {
 
 	response := httptest.NewRecorder()
 
-	prat := clipExpexted.Id
-	request, err := http.NewRequest(http.MethodGet, prat, nil)
+	request, err := http.NewRequest(http.MethodGet, "/clipboards/get/"+"2", nil)
 	if err != nil {
 		t.Errorf("unexpected request err: %s", err.Error())
 	}
 
-	userID := clipExpexted.UserId
+	userID := clipExpected.UserId
 	request.Header.Set("jwt-clipboard-user-id", userID)
 
-	handlerClipboard.GetClipById(response, request)
+	r.ServeHTTP(response, request)
 
-	//t.Log("responseBody:", responseBody)
+	// t.Log("responseBody:", responseBody)
 
 	responseBody := response.Result().Body
 
@@ -190,6 +190,7 @@ func Test_GetClipByIDHappy(t *testing.T) {
 	io.Copy(buf, responseBody)
 
 	t.Log("buf:", string(buf.Bytes()))
+	t.Log("status", response.Result().Status)
 
 	// 	var result struct {
 	// 		Clipboard model.Clipboard `json:"created"`
@@ -208,13 +209,10 @@ func Test_GetClipByIDHappy(t *testing.T) {
 	// 	if result.Clipboard != clipExpexted {
 	// 		t.Errorf("expected clipExpexted:'%v' ,but got result:'%v'", clipExpexted, result.Clipboard)
 	// 	}
-
 }
 
 func Test_UpdateClipByIDHappy(t *testing.T) {
-
 }
 
 func Test_DeleteClipHappy(t *testing.T) {
-
 }
