@@ -12,7 +12,6 @@ import (
 )
 
 func Test_NewtokenJWT(t *testing.T) {
-
 	secretJwt := "clipboard-jwt-secret"
 	expectedExp := time.Now().Add(24 * time.Hour).Local()
 	expectedId := "123"
@@ -95,39 +94,11 @@ func Test_ExtractClaims(t *testing.T) {
 
 }
 
-func Test_AuthMiddlewareHeaderError(t *testing.T) {
-	testSecret := "test-secert"
-	authenticator := auth.New(testSecret)
-
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		apiutils.SendJson(w, http.StatusOK, "ok")
-	}
-
-	next := http.HandlerFunc(handler)
-	server := authenticator.AuthMiddlewareHeader(next)
-
-	response := httptest.NewRecorder()
-	request, err := http.NewRequest(http.MethodPost, "", nil)
-	if err != nil {
-		t.Errorf("unexpect request err:%s", err.Error())
-	}
-
-	//Call API
-	server.ServeHTTP(response, request)
-
-	status := response.Result().StatusCode
-	if status != http.StatusUnauthorized {
-		t.Error("unexpected status", status)
-	}
-
-}
 func Test_AuthMiddlewareHeaderHappy(t *testing.T) {
 	testSecret := "test-secret"
-	testSecret2 := "test"
 	testIss := "test-iss"
 	testUserId := "test-user-id"
 	authenticator := auth.New(testSecret)
-	authenticator2 := auth.New(testSecret2)
 
 	//
 	handler := func(w http.ResponseWriter, r *http.Request) {
@@ -158,18 +129,70 @@ func Test_AuthMiddlewareHeaderHappy(t *testing.T) {
 		t.Errorf("unexpected request err: %s", err.Error())
 	}
 
-	// create token แล้วsetใส่ r.Header เพื่อให้ `handler` get ออกมา
-	// token, _, err := authenticator.NewTokenJWT(testIss, testUserId)
-	// if err != nil {
-	// 	t.Errorf("unexpected newToken err: %s", err.Error())
-	// }
-
-	token2, _, err := authenticator2.NewTokenJWT(testIss, testUserId)
+	//create token แล้วsetใส่ r.Header เพื่อให้ `handler` get ออกมา
+	token, _, err := authenticator.NewTokenJWT(testIss, testUserId)
 	if err != nil {
 		t.Errorf("unexpected newToken err: %s", err.Error())
 	}
 
-	request.Header.Set("Authorization", "Bearer "+token2)
+	request.Header.Set("Authorization", "Bearer "+token)
+	// request.Header.Set("Authorization", "Bearer "+token)
+
+	// Call API
+	server.ServeHTTP(response, request)
+
+	status := response.Result().StatusCode
+	if status != 200 {
+		t.Error("unexpect status:", status)
+	}
+
+	t.Log("status:", status)
+
+}
+
+// mw -> handler
+
+// TODO: test auth no token, invalid token
+
+func Test_AuthMiddlewareHeaderTokenErr(t *testing.T) {
+	testSecret := "test-secret"
+	testSecret2 := "test"
+	testIss := "test-iss"
+	testUserId := "test-user-id"
+	authenticator := auth.New(testSecret)   // T
+	authenticator2 := auth.New(testSecret2) // F
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		userID := auth.GetUserIdFromHeader(r.Header)
+		if userID != testUserId {
+			apiutils.SendJson(w, http.StatusInternalServerError, "not found user-id")
+			return
+		}
+
+		userIss := auth.GetUserIssFromHeader(r.Header)
+		if userIss != testIss {
+			apiutils.SendJson(w, http.StatusInternalServerError, "not found user-iss")
+			return
+		}
+
+		apiutils.SendJson(w, http.StatusOK, "ok")
+	}
+
+	next := http.HandlerFunc(handler)
+	server := authenticator.AuthMiddlewareHeader(next)
+
+	response := httptest.NewRecorder()
+	request, err := http.NewRequest(http.MethodPost, "", nil)
+	if err != nil {
+		t.Errorf("unexpected request err: %s", err.Error())
+	}
+
+	token, _, err := authenticator2.NewTokenJWT(testIss, testUserId)
+	if err != nil {
+		t.Errorf("unexpected newToken err: %s", err.Error())
+	}
+
+	request.Header.Set("Authorization", "Bearer "+token)
 	// request.Header.Set("Authorization", "Bearer "+token)
 
 	// Call API
@@ -180,8 +203,35 @@ func Test_AuthMiddlewareHeaderHappy(t *testing.T) {
 		t.Error("unexpect status:", status)
 	}
 
+	t.Log("status:", status)
+
 }
 
-// mw -> handler
+func Test_AuthMiddlewareHeaderInvalidToken(t *testing.T) {
+	testSecret := "test-secert"
+	authenticator := auth.New(testSecret)
 
-// TODO: test auth no token, invalid token
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		apiutils.SendJson(w, http.StatusOK, "ok")
+	}
+
+	next := http.HandlerFunc(handler)
+	server := authenticator.AuthMiddlewareHeader(next)
+
+	response := httptest.NewRecorder()
+	request, err := http.NewRequest(http.MethodPost, "", nil)
+	if err != nil {
+		t.Errorf("unexpect request err:%s", err.Error())
+	}
+
+	//Call API
+	server.ServeHTTP(response, request)
+
+	status := response.Result().StatusCode
+	if status != http.StatusUnauthorized {
+		t.Error("unexpected status", status)
+	}
+
+	t.Log("status:", status)
+
+}

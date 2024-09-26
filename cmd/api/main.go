@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
+	"github.com/eymyong/drop/cmd/api/config"
 	"github.com/eymyong/drop/cmd/api/handler/auth"
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
 	"github.com/eymyong/drop/cmd/api/handler/handleruser"
@@ -16,20 +16,18 @@ import (
 )
 
 func main() {
+	fileName := "config.json"
+	conf := config.ReadJson(fileName)
 
-	conf := envConfig()
-	fmt.Println("conf", conf)
-
-	rd := repo.NewRedis(conf.redisAddr, conf.redisUsername, conf.redisPassword, conf.redisDb)
+	rd := repo.NewRedis(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDb)
 	repoClip := redisclipboard.New(rd)
 	repoUser := redisuser.New(rd)
 
-	servicePassword := service.NewServicePassword(conf.secretAES)
-	authenticator := auth.New(conf.secretJWT)
+	servicePassword := service.NewServicePassword(conf.SecretAES)
+	authenticator := auth.New(conf.SecretJWT)
 
 	handlerClip := handlerclipboard.NewClipboard(repoClip)
 	handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
-	// handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
 
 	r := newServer(handlerUser, handlerClip, authenticator)
 

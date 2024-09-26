@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/eymyong/drop/cmd/api/config"
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
 	"github.com/eymyong/drop/model"
 	"github.com/eymyong/drop/repo"
@@ -38,8 +40,7 @@ func mockRegisterRoutesClipboardAPI(rd *redis.Client) *mux.Router {
 
 }
 
-func parseClipboardForTest(clipboard model.Clipboard, oder string, text string) (clips []model.Clipboard, clip model.Clipboard) {
-	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+func parseClipboardForTest(rd *redis.Client, clipboard model.Clipboard, oder string, text string) (clips []model.Clipboard, clip model.Clipboard) {
 	repo := redisclipboard.New(rd)
 
 	ctx := context.Background()
@@ -85,8 +86,35 @@ func parseClipboardForTest(clipboard model.Clipboard, oder string, text string) 
 
 }
 
-func Test_CreateClipHappy(t *testing.T) {
+func Test_CreateClipErr(t *testing.T) {
 	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+	flush(rd)
+
+	//router := mockRegisterRoutesClipboardAPI(rd)
+}
+
+func ReadConfig(fileName string) config.Config {
+
+	b, err := os.ReadFile(fileName)
+	if err != nil {
+		panic(err)
+	}
+
+	var env config.Config
+	err = json.Unmarshal(b, &env)
+	if err != nil {
+		panic(err)
+	}
+
+	return env
+}
+
+func Test_CreateClipHappy(t *testing.T) {
+	fileName := "../../../../config.json"
+	conF := ReadConfig(fileName)
+
+	rd := repo.NewRedis(conF.RedisAddr, conF.RedisUsername, conF.RedisPassword, conF.RedisDb)
+
 	flush(rd)
 
 	router := mockRegisterRoutesClipboardAPI(rd)
@@ -117,7 +145,7 @@ func Test_CreateClipHappy(t *testing.T) {
 		panic(err)
 	}
 
-	_, clip := parseClipboardForTest(result.Created, "get-by-id", "")
+	_, clip := parseClipboardForTest(rd, result.Created, "get-by-id", "")
 
 	if clip.UserId != userID {
 		t.Errorf("unexpected user-id: expected='%s', actual='%s'", userID, clip.UserId)
@@ -130,7 +158,10 @@ func Test_CreateClipHappy(t *testing.T) {
 }
 
 func Test_GetClipByIDHappy(t *testing.T) {
-	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+	fileName := "../../../../config.json"
+	conF := ReadConfig(fileName)
+
+	rd := repo.NewRedis(conF.RedisAddr, conF.RedisUsername, conF.RedisPassword, conF.RedisDb)
 
 	flush(rd)
 
@@ -142,7 +173,7 @@ func Test_GetClipByIDHappy(t *testing.T) {
 		Text:   "one",
 	}
 
-	parseClipboardForTest(clipExpected, "create", "")
+	parseClipboardForTest(rd, clipExpected, "create", "")
 
 	response := httptest.NewRecorder()
 
@@ -178,7 +209,10 @@ func Test_GetClipByIDHappy(t *testing.T) {
 }
 
 func Test_GetAllClipHappy(t *testing.T) {
-	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+	fileName := "../../../../config.json"
+	conF := ReadConfig(fileName)
+
+	rd := repo.NewRedis(conF.RedisAddr, conF.RedisUsername, conF.RedisPassword, conF.RedisDb)
 
 	flush(rd)
 
@@ -198,7 +232,7 @@ func Test_GetAllClipHappy(t *testing.T) {
 	}
 
 	for i := range clipExpected {
-		parseClipboardForTest(clipExpected[i], "create", "")
+		parseClipboardForTest(rd, clipExpected[i], "create", "")
 	}
 
 	// //log มาดูแล้ว create มันไป create 'clipExpected[1]' ก่อน ,ซึ่งมันควนจะ create 'clipExpected[0]' ก่อน
@@ -255,7 +289,10 @@ func Test_GetAllClipHappy(t *testing.T) {
 }
 
 func Test_UpdateClipByIDHappy(t *testing.T) {
-	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+	fileName := "../../../../config.json"
+	conF := ReadConfig(fileName)
+
+	rd := repo.NewRedis(conF.RedisAddr, conF.RedisUsername, conF.RedisPassword, conF.RedisDb)
 
 	flush(rd)
 
@@ -267,7 +304,7 @@ func Test_UpdateClipByIDHappy(t *testing.T) {
 		Text:   "one",
 	}
 
-	parseClipboardForTest(clipExpected, "create", "")
+	parseClipboardForTest(rd, clipExpected, "create", "")
 
 	response := httptest.NewRecorder()
 
@@ -280,7 +317,7 @@ func Test_UpdateClipByIDHappy(t *testing.T) {
 
 	router.ServeHTTP(response, request)
 
-	_, actual := parseClipboardForTest(clipExpected, "get-by-id", "")
+	_, actual := parseClipboardForTest(rd, clipExpected, "get-by-id", "")
 
 	if actual.Text != newText {
 		t.Errorf("expected newText: %s but got %s", newText, actual.Text)
@@ -289,7 +326,10 @@ func Test_UpdateClipByIDHappy(t *testing.T) {
 }
 
 func Test_DeleteClipHappy(t *testing.T) {
-	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+	fileName := "../../../../config.json"
+	conF := ReadConfig(fileName)
+
+	rd := repo.NewRedis(conF.RedisAddr, conF.RedisUsername, conF.RedisPassword, conF.RedisDb)
 
 	flush(rd)
 
@@ -301,7 +341,7 @@ func Test_DeleteClipHappy(t *testing.T) {
 		Text:   "one",
 	}
 
-	parseClipboardForTest(clipExpected, "create", "")
+	parseClipboardForTest(rd, clipExpected, "create", "")
 
 	response := httptest.NewRecorder()
 	request, err := http.NewRequest(http.MethodDelete, "/clipboards/delete/"+clipExpected.Id, nil)
@@ -325,7 +365,10 @@ func Test_DeleteClipHappy(t *testing.T) {
 }
 
 func Test_GetClipByIDHappy0(t *testing.T) {
-	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+	fileName := "../../../../config.json"
+	conF := ReadConfig(fileName)
+
+	rd := repo.NewRedis(conF.RedisAddr, conF.RedisUsername, conF.RedisPassword, conF.RedisDb)
 
 	flush(rd)
 
