@@ -16,6 +16,7 @@ import (
 )
 
 func main() {
+
 	conf := envConfig()
 	fmt.Println("conf", conf)
 
@@ -50,8 +51,8 @@ func newServer(handlerUser *handleruser.HandlerUser, handlerClip *handlerclipboa
 	routerClip.Use(auth.AuthMiddlewareHeader)
 	routerUsers.Use(auth.AuthMiddlewareHeader)
 
+	handlerclipboard.RegisterRoutesClipboardAPI(routerUsers, handlerClip)
 	handleruser.RegisterUserAPI(routerClip, handlerUser)
-	handlerclipboard.RegisterRoutesClipboardAPI(routerClip, handlerClip)
 
 	return r
 }

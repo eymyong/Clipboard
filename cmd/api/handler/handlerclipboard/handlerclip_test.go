@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,27 +25,86 @@ func flush(rd *redis.Client) {
 	}
 }
 
-func Test_CreateClipHappy(t *testing.T) {
-	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
-
-	flush(rd)
+func mockRegisterRoutesClipboardAPI(rd *redis.Client) *mux.Router {
 
 	repo := redisclipboard.New(rd)
 	handlerClipboard := handlerclipboard.NewClipboard(repo)
+
+	r := mux.NewRouter()
+	routerClip := r.PathPrefix("/clipboards").Subrouter()
+	handlerclipboard.RegisterRoutesClipboardAPI(routerClip, handlerClipboard)
+
+	return r
+
+}
+
+func parseClipboardForTest(clipboard model.Clipboard, oder string, text string) (clips []model.Clipboard, clip model.Clipboard) {
+	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+	repo := redisclipboard.New(rd)
+
+	ctx := context.Background()
+
+	switch oder {
+	case "create":
+		err := repo.Create(ctx, clipboard)
+		if err != nil {
+			panic(err)
+		}
+		return
+
+	case "get-all":
+		clips, err := repo.GetAll(ctx)
+		if err != nil {
+			panic(err)
+		}
+		return clips, model.Clipboard{}
+
+	case "get-by-id":
+		clip, err := repo.GetById(ctx, clipboard.Id)
+		if err != nil {
+			panic(err)
+		}
+		return nil, clip
+
+	case "update":
+		err := repo.Update(ctx, clipboard.Id, text)
+		if err != nil {
+			panic(err)
+		}
+		return
+
+	case "delete":
+		err := repo.Delete(ctx, clipboard.Id)
+		if err != nil {
+			panic(err)
+		}
+		return
+	}
+
+	return nil, model.Clipboard{}
+
+}
+
+func Test_CreateClipHappy(t *testing.T) {
+	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+	flush(rd)
+
+	router := mockRegisterRoutesClipboardAPI(rd)
 
 	response := httptest.NewRecorder()
 
 	text := "clip-1"
 	body := bytes.NewBufferString(text)
-	request, err := http.NewRequest(http.MethodPost, "", body)
+	request, err := http.NewRequest(http.MethodPost, "/clipboards/create", body)
 	if err != nil {
 		t.Errorf("unexpected request err: %s", err.Error())
 	}
-
+	// Set Header เนื่องจาก main API need use playload in request
 	userID := "test-user-1"
 	request.Header.Set("jwt-clipboard-user-id", userID)
 
-	handlerClipboard.CreateClip(response, request)
+	//call API
+	router.ServeHTTP(response, request)
 
 	responseBody := response.Result().Body
 
@@ -59,16 +117,7 @@ func Test_CreateClipHappy(t *testing.T) {
 		panic(err)
 	}
 
-	t.Log("response body:", result)
-
-	ctx := context.Background()
-
-	clip, err := repo.GetById(ctx, result.Created.Id)
-	if err != nil {
-		t.Errorf("failed to get clipboard from redis: %v", err)
-	}
-
-	t.Log("db data:", clip)
+	_, clip := parseClipboardForTest(result.Created, "get-by-id", "")
 
 	if clip.UserId != userID {
 		t.Errorf("unexpected user-id: expected='%s', actual='%s'", userID, clip.UserId)
@@ -78,7 +127,54 @@ func Test_CreateClipHappy(t *testing.T) {
 		t.Errorf("unexpected text: expected='%s', actual='%s'", text, clip.Text)
 	}
 
-	// flush(rd)
+}
+
+func Test_GetClipByIDHappy(t *testing.T) {
+	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+
+	flush(rd)
+
+	router := mockRegisterRoutesClipboardAPI(rd)
+
+	clipExpected := model.Clipboard{
+		Id:     "1",
+		UserId: "zzz",
+		Text:   "one",
+	}
+
+	parseClipboardForTest(clipExpected, "create", "")
+
+	response := httptest.NewRecorder()
+
+	request, err := http.NewRequest(http.MethodGet, "/clipboards/get/"+clipExpected.Id, nil)
+	if err != nil {
+		t.Errorf("unexpected request err: %s", err.Error())
+	}
+
+	router.ServeHTTP(response, request)
+
+	responseBody := response.Result().Body
+	var result model.Clipboard
+	err = json.NewDecoder(responseBody).Decode(&result)
+	if err != nil {
+		panic(err)
+	}
+
+	if clipExpected != result {
+		t.Errorf("expected clipExpected: '%v' but got '%v'", clipExpected, result)
+	}
+
+	if clipExpected.Id != result.Id {
+		t.Errorf("unexpected clipExpected.Id: '%v' != result.Id: '%v'", clipExpected.Id, result.Id)
+	}
+
+	if clipExpected.UserId != result.UserId {
+		t.Errorf("unexpected clipExpected.UserId: '%v' != result.UserId: '%v'", clipExpected.UserId, result.UserId)
+	}
+
+	if clipExpected.Text != result.Text {
+		t.Errorf("unexpected clipExpected.Text: '%v' != result.Text: '%v'", clipExpected.Text, result.Text)
+	}
 }
 
 func Test_GetAllClipHappy(t *testing.T) {
@@ -86,10 +182,9 @@ func Test_GetAllClipHappy(t *testing.T) {
 
 	flush(rd)
 
-	repo := redisclipboard.New(rd)
-	handlerClipboard := handlerclipboard.NewClipboard(repo)
+	router := mockRegisterRoutesClipboardAPI(rd)
 
-	clipsTest := []model.Clipboard{
+	clipExpected := []model.Clipboard{
 		{
 			Id:     "1",
 			UserId: "xxx",
@@ -97,55 +192,139 @@ func Test_GetAllClipHappy(t *testing.T) {
 		},
 		{
 			Id:     "2",
-			UserId: "xxx",
+			UserId: "yyy",
 			Text:   "two",
 		},
 	}
 
-	ctx := context.Background()
-
-	for _, v := range clipsTest {
-		err := repo.Create(ctx, v)
-		if err != nil {
-			t.Errorf("unexpected err: %s", err.Error())
-			return
-		}
+	for i := range clipExpected {
+		parseClipboardForTest(clipExpected[i], "create", "")
 	}
 
+	// //log มาดูแล้ว create มันไป create 'clipExpected[1]' ก่อน ,ซึ่งมันควนจะ create 'clipExpected[0]' ก่อน
+
 	response := httptest.NewRecorder()
-	request, err := http.NewRequest(http.MethodGet, "", nil)
+	request, err := http.NewRequest(http.MethodGet, "/clipboards/get-all", nil)
 	if err != nil {
 		t.Errorf("unexpected err: %s", err.Error())
 		return
 	}
 
-	handlerClipboard.GetAllClips(response, request)
+	router.ServeHTTP(response, request)
 
 	responseBody := response.Result().Body
 
-	var result struct {
-		Created []model.Clipboard `json:"created"`
-	}
-
+	var result []model.Clipboard
 	err = json.NewDecoder(responseBody).Decode(&result)
 	if err != nil {
 		panic(err)
 	}
 
-	// for i, v := range result.Created {
-	// 	if v != clipsTest[i] {
-	// 		t.Errorf("expected cliptest:'%v',but got %v", clipsTest[i], v)
-	// 	}
-	// }
-
-	if clipsTest[0] != result.Created[0] {
-		t.Errorf("expected cliptest:'%v',but got %v", clipsTest[0], result.Created[0])
+	if len(clipExpected) != len(result) {
+		t.Errorf("unexpect len 'result': %d != len 'clipExpected': %d", len(result), len(clipExpected))
+		return
 	}
 
-	// flush(rd)
+	resultMap := make(map[string]model.Clipboard)
+
+	for _, v := range result {
+		key := v.Id
+		resultMap[key] = v
+	}
+
+	for _, v := range clipExpected {
+		clip, ok := resultMap[v.Id]
+		if !ok {
+			t.Errorf("unexpected not found Id: %s", v.Id)
+		}
+
+		if clip.Id != v.Id {
+			t.Errorf("unexpected clipExpected.Id: '%s' != clip.Id: '%s'", v.Id, clip.Id)
+		}
+
+		if clip.UserId != v.UserId {
+			t.Errorf("unexpected clipExpected.UserId: '%s' != clip.UserId: '%s'", v.UserId, clip.UserId)
+		}
+
+		if clip.Text != v.Text {
+			t.Errorf("unexpected clipExpected.Text: '%s' != clip.Text: '%s'", v.Text, clip.Text)
+		}
+
+	}
+
 }
 
-func Test_GetClipByIDHappy(t *testing.T) {
+func Test_UpdateClipByIDHappy(t *testing.T) {
+	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+
+	flush(rd)
+
+	router := mockRegisterRoutesClipboardAPI(rd)
+
+	clipExpected := model.Clipboard{
+		Id:     "1",
+		UserId: "zzz",
+		Text:   "one",
+	}
+
+	parseClipboardForTest(clipExpected, "create", "")
+
+	response := httptest.NewRecorder()
+
+	newText := "newONE"
+	body := bytes.NewBufferString(newText)
+	request, err := http.NewRequest(http.MethodPatch, "/clipboards/update/"+clipExpected.Id, body)
+	if err != nil {
+		t.Errorf("unexpected err: %s", err.Error())
+	}
+
+	router.ServeHTTP(response, request)
+
+	_, actual := parseClipboardForTest(clipExpected, "get-by-id", "")
+
+	if actual.Text != newText {
+		t.Errorf("expected newText: %s but got %s", newText, actual.Text)
+	}
+
+}
+
+func Test_DeleteClipHappy(t *testing.T) {
+	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
+
+	flush(rd)
+
+	router := mockRegisterRoutesClipboardAPI(rd)
+
+	clipExpected := model.Clipboard{
+		Id:     "1",
+		UserId: "zzz",
+		Text:   "one",
+	}
+
+	parseClipboardForTest(clipExpected, "create", "")
+
+	response := httptest.NewRecorder()
+	request, err := http.NewRequest(http.MethodDelete, "/clipboards/delete/"+clipExpected.Id, nil)
+	if err != nil {
+		t.Errorf("unexpected err: %s", err.Error())
+	}
+
+	router.ServeHTTP(response, request)
+
+	ctx := context.Background()
+	keys, err := rd.Keys(ctx, "*").Result()
+	if err != nil {
+		t.Errorf("unexpect err: %s", err.Error())
+		return
+	}
+
+	if len(keys) != 0 {
+		t.Errorf("unexpected leagth: %d", len(keys))
+	}
+
+}
+
+func Test_GetClipByIDHappy0(t *testing.T) {
 	rd := repo.NewRedis("167.179.66.149:6379", "", "Eepi2geeque2ahCo", 3)
 
 	flush(rd)
@@ -158,9 +337,9 @@ func Test_GetClipByIDHappy(t *testing.T) {
 	handlerclipboard.RegisterRoutesClipboardAPI(routerClip, handlerClipboard)
 
 	clipExpected := model.Clipboard{
-		Id:     "2",
+		Id:     "1",
 		UserId: "zzz",
-		Text:   "two",
+		Text:   "one",
 	}
 
 	ctx := context.Background()
@@ -172,47 +351,53 @@ func Test_GetClipByIDHappy(t *testing.T) {
 
 	response := httptest.NewRecorder()
 
-	request, err := http.NewRequest(http.MethodGet, "/clipboards/get/"+"2", nil)
+	request, err := http.NewRequest(http.MethodGet, "/clipboards/get/"+clipExpected.Id, nil)
 	if err != nil {
 		t.Errorf("unexpected request err: %s", err.Error())
 	}
 
-	userID := clipExpected.UserId
-	request.Header.Set("jwt-clipboard-user-id", userID)
-
 	r.ServeHTTP(response, request)
 
-	// t.Log("responseBody:", responseBody)
+	// //read responseBody
+	// responseBody := response.Result().Body
+
+	// //สร้าง buf เพื่อจะ t.Log ดูของก่อน
+	// buf := bytes.NewBuffer(nil)
+	// io.Copy(buf, responseBody)
+
+	// t.Log("buf:", string(buf.Bytes()))
+	// t.Log("status", response.Result().Status)
+
+	// var result model.Clipboard
+
+	// //ที่ใส่ 'buf' เพราะอ่าน body ได้แค่ครั้งเดียวซึ่ง body ถูก responseBody อ่านไปแล้ว
+	// err = json.NewDecoder(buf).Decode(&result)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// t.Log("result:", result)
 
 	responseBody := response.Result().Body
+	var result model.Clipboard
+	err = json.NewDecoder(responseBody).Decode(&result)
+	if err != nil {
+		panic(err)
+	}
 
-	buf := bytes.NewBuffer(nil)
-	io.Copy(buf, responseBody)
+	if clipExpected != result {
+		t.Errorf("expected clipExpected: '%v' but got '%v'", clipExpected, result)
+	}
 
-	t.Log("buf:", string(buf.Bytes()))
-	t.Log("status", response.Result().Status)
+	if clipExpected.Id != result.Id {
+		t.Errorf("unexpected clipExpected.Id: '%v' != result.Id: '%v'", clipExpected.Id, result.Id)
+	}
 
-	// 	var result struct {
-	// 		Clipboard model.Clipboard `json:"created"`
-	// 	}
+	if clipExpected.UserId != result.UserId {
+		t.Errorf("unexpected clipExpected.UserId: '%v' != result.UserId: '%v'", clipExpected.UserId, result.UserId)
+	}
 
-	// 	err = json.NewDecoder(responseBody).Decode(&result)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-
-	// 	if result.Clipboard.Id == "" {
-	// 		t.Error("result:", result.Clipboard)
-	// 	}
-	// 	//t.Log("result.Clipboard:", result.Clipboard)
-
-	// 	if result.Clipboard != clipExpexted {
-	// 		t.Errorf("expected clipExpexted:'%v' ,but got result:'%v'", clipExpexted, result.Clipboard)
-	// 	}
-}
-
-func Test_UpdateClipByIDHappy(t *testing.T) {
-}
-
-func Test_DeleteClipHappy(t *testing.T) {
+	if clipExpected.Text != result.Text {
+		t.Errorf("unexpected clipExpected.Text: '%v' != result.Text: '%v'", clipExpected.Text, result.Text)
+	}
 }

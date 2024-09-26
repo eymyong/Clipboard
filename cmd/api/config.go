@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -16,10 +17,11 @@ type config struct {
 }
 
 func envConfig() config {
-	//redisAddr := "127.0.0.1:6379" //
+	// redisAddr := "127.0.0.1:6379" //
 	redisDb := 0
 	redisUsername := ""
 	//redisPassword := "" //
+
 	secretAes := "my-secret-foobarbaz200030004000x"
 	secretJwt := "clipboard-jwt-secret"
 
@@ -33,12 +35,15 @@ func envConfig() config {
 
 	redisAddrEnv, _ := os.LookupEnv("REDIS_ADDR")
 	if redisAddrEnv != "" {
-		//redisAddr = redisAddrEnv //
+		// redisAddr = redisAddrEnv //
 	}
 
 	redisUsernameEnv, _ := os.LookupEnv("REDIS_USERNAME")
+	fmt.Println(redisUsername)
+
 	if redisUsernameEnv != "" {
 		redisUsername = redisUsernameEnv
+
 	}
 
 	redisPasswordEnv, _ := os.LookupEnv("REDIS_PASSWORD")
@@ -61,7 +66,8 @@ func envConfig() config {
 		redisDb:       redisDb,
 		redisUsername: redisUsername,
 		redisPassword: "Eepi2geeque2ahCo",
-		secretAES:     secretAes,
-		secretJWT:     secretJwt,
+
+		secretAES: secretAes,
+		secretJWT: secretJwt,
 	}
 }
