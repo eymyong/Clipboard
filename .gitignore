@@ -3,3 +3,4 @@ debug
 reqs
 env.json
 config.json
+./repo/dbuser/dbuser.go

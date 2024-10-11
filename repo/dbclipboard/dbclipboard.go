@@ -10,15 +10,15 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type RepoDB struct {
+type RepoDbClipboard struct {
 	db *sqlx.DB
 }
 
 func New(db *sqlx.DB) repo.RepositoryClipboard {
-	return &RepoDB{db: db}
+	return &RepoDbClipboard{db: db}
 }
 
-func (d *RepoDB) Create(ctx context.Context, clip model.Clipboard) error {
+func (d *RepoDbClipboard) Create(ctx context.Context, clip model.Clipboard) error {
 	_, err := d.db.QueryContext(ctx, "insert into CLIPBOARDS (id,user_id,text) values ($1,$2,$3)", clip.Id, clip.UserId, clip.Text)
 	if err != nil {
 		return fmt.Errorf("query insert err: %w", err)
@@ -26,7 +26,7 @@ func (d *RepoDB) Create(ctx context.Context, clip model.Clipboard) error {
 	return nil
 }
 
-func (d *RepoDB) GetAll(ctx context.Context) ([]model.Clipboard, error) {
+func (d *RepoDbClipboard) GetAll(ctx context.Context) ([]model.Clipboard, error) {
 	rows, err := d.db.QueryContext(ctx, "select * from CLIPBOARDS")
 	if err != nil {
 		return []model.Clipboard{}, fmt.Errorf("query select err: %w", err)
@@ -46,7 +46,7 @@ func (d *RepoDB) GetAll(ctx context.Context) ([]model.Clipboard, error) {
 	return clipboard, nil
 }
 
-func (d *RepoDB) GetById(ctx context.Context, id string) (model.Clipboard, error) {
+func (d *RepoDbClipboard) GetById(ctx context.Context, id string) (model.Clipboard, error) {
 	rows, err := d.db.QueryContext(ctx, "select * from CLIPBOARDS c where c.id = ($1)", id)
 	if err != nil {
 		return model.Clipboard{}, fmt.Errorf("query select err: %w", err)
@@ -67,7 +67,7 @@ func (d *RepoDB) GetById(ctx context.Context, id string) (model.Clipboard, error
 	return clipboard, nil
 }
 
-func (d *RepoDB) Update(ctx context.Context, id string, newText string) error {
+func (d *RepoDbClipboard) Update(ctx context.Context, id string, newText string) error {
 	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ func (d *RepoDB) Update(ctx context.Context, id string, newText string) error {
 	return nil
 }
 
-func (d *RepoDB) Delete(ctx context.Context, id string) error {
+func (d *RepoDbClipboard) Delete(ctx context.Context, id string) error {
 	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return err
@@ -128,7 +128,7 @@ func (d *RepoDB) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (d *RepoDB) DeleteAll(ctx context.Context) error {
+func (d *RepoDbClipboard) DeleteAll(ctx context.Context) error {
 
 	return nil
 }
