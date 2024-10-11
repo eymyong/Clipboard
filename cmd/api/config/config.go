@@ -16,6 +16,13 @@ type Config struct {
 	SecretAES string
 	// For signing JWT
 	SecretJWT string
+
+	//DB
+	DriverName string `json:"driverName"`
+	DbHost     string `json:"dbhost"`
+	DbPort     string `json:"dbport"`
+	DbUser     string `json:"dbuser"`
+	DbName     string `json:"dbname"`
 }
 
 func ReadJson(fileName string) Config {
@@ -40,7 +47,20 @@ func ReadJson(fileName string) Config {
 		RedisPassword: env.RedisPassword,
 		SecretAES:     secretAes,
 		SecretJWT:     secretJwt,
+		DbHost:        env.DbHost,
+		DbPort:        env.DbPort,
+		DbUser:        env.DbUser,
+		DbName:        env.DbName,
+		DriverName:    env.DriverName,
 	}
+}
+
+// DataSourceName = "host=167.179.66.149 port=5469 user=postgres dbname=yongdb"
+func DataSourceName(host, port, user, dbname string) string {
+	c := ReadJson("config.json")
+	dataSourceName := "host=" + c.DbHost + " post=" + c.DbPort + " user=" + c.DbUser + " dbname=" + c.DbName
+
+	return dataSourceName
 }
 
 func EnvConfig(fileName string) Config {

@@ -13,12 +13,12 @@ type RepoRedis struct {
 	rd *redis.Client
 }
 
-func keyRedisClipboard(id string) string {
-	return "clipboard:" + id
-}
-
 func New(rd *redis.Client) repo.RepositoryClipboard {
 	return &RepoRedis{rd: rd}
+}
+
+func keyRedisClipboard(id string) string {
+	return "clipboard:" + id
 }
 
 func (r *RepoRedis) Create(ctx context.Context, clip model.Clipboard) error {
