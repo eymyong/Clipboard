@@ -25,7 +25,7 @@ func (d *RepoDbUser) Create(ctx context.Context, user model.User) (model.User, e
 		return model.User{}, fmt.Errorf("failed to begin tx: %w", err)
 	}
 
-	rows, err := tx.Query("insert into USERS (id,user_name,user_password) values ($1,$2,$3) returning user_name, user_password", user.Id, user.Username, user.Password)
+	rows, err := tx.Query("insert into USERS (id,username,password) values ($1,$2,$3) returning username, password", user.Id, user.Username, user.Password)
 	if err != nil {
 		return model.User{}, fmt.Errorf("query insert `users` err: %w", err)
 	}
@@ -57,7 +57,7 @@ func (d *RepoDbUser) Create(ctx context.Context, user model.User) (model.User, e
 }
 
 func (d *RepoDbUser) GetPassword(ctx context.Context, username string) ([]byte, error) {
-	rows, err := d.db.QueryContext(ctx, "select user_password from USERS where user_name = ($1)", username)
+	rows, err := d.db.QueryContext(ctx, "select password from USERS where username = ($1)", username)
 	if err != nil {
 		return nil, fmt.Errorf("query select err: %w", err)
 	}
@@ -103,7 +103,7 @@ func (d *RepoDbUser) GetById(ctx context.Context, id string) (model.User, error)
 
 // postgres ไม่ต้องใช้ GetUserId ?
 func (d *RepoDbUser) GetUserId(ctx context.Context, username string) (string, error) {
-	rows, err := d.db.QueryContext(ctx, "select id from USERS where user_name = ($1)", username)
+	rows, err := d.db.QueryContext(ctx, "select id from USERS where username = ($1)", username)
 	if err != nil {
 		return "", fmt.Errorf("query select err: %w", err)
 	}
@@ -132,7 +132,7 @@ func (d *RepoDbUser) UpdateUsername(ctx context.Context, id string, newUsername 
 		return err
 	}
 
-	result, err := tx.Exec("update USERS u set user_name = ($1) where u.id = ($2)", newUsername, id)
+	result, err := tx.Exec("update USERS u set username = ($1) where u.id = ($2)", newUsername, id)
 	if err != nil {
 		return fmt.Errorf("query update username err: %w", err)
 	}
@@ -159,7 +159,7 @@ func (d *RepoDbUser) UpdatePassword(ctx context.Context, id string, newPassword 
 		return err
 	}
 
-	result, err := tx.ExecContext(ctx, "update USERS u set user_password = ($1) where u.id = ($2)", newPassword, id)
+	result, err := tx.ExecContext(ctx, "update USERS u set password = ($1) where u.id = ($2)", newPassword, id)
 	if err != nil {
 		return fmt.Errorf("query update password err: %w", err)
 	}
