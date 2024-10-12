@@ -116,9 +116,16 @@ func (h *HandlerClipboard) GetClipById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := context.Background()
+	userID := auth.GetUserIdFromHeader(r.Header)
+	if id == "" {
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "missing userid",
+		})
+		return
+	}
 
-	clipboard, err := h.repoClipboard.GetById(ctx, id)
+	ctx := r.Context()
+	clipboard, err := h.repoClipboard.GetUserClipboard(ctx, id, userID)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  fmt.Sprintf("failed to get todo %s", id),
@@ -156,8 +163,18 @@ func (h *HandlerClipboard) UpdateClipById(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	ctx := context.Background()
-	err = h.repoClipboard.Update(ctx, id, string(b))
+	userID := auth.GetUserIdFromHeader(r.Header)
+	if userID == "" {
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "missing userid",
+		})
+		return
+	}
+
+	ctx := r.Context()
+	text := string(b)
+	err = h.repoClipboard.UpdateUserClipboard(ctx, id, userID, text)
+
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to update",
@@ -168,7 +185,7 @@ func (h *HandlerClipboard) UpdateClipById(w http.ResponseWriter, r *http.Request
 
 	apiutils.SendJson(w, http.StatusOK, map[string]interface{}{
 		"sucess": fmt.Sprintf("update to id: %s", id),
-		"reason": string(b),
+		"data":   text,
 	})
 
 }
@@ -183,8 +200,16 @@ func (h *HandlerClipboard) DeleteClip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := auth.GetUserIdFromHeader(r.Header)
+	if userID == "" {
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "missing userid",
+		})
+		return
+	}
+
 	ctx := r.Context()
-	err := h.repoClipboard.Delete(ctx, id)
+	err := h.repoClipboard.DeleteUserClipboard(ctx, id, userID)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to delete",
