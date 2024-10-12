@@ -19,11 +19,25 @@ func New(db *sqlx.DB) repo.RepositoryClipboard {
 }
 
 func (d *RepoDbClipboard) Create(ctx context.Context, clip model.Clipboard) error {
-	_, err := d.db.QueryContext(ctx, "insert into CLIPBOARDS (id,user_id,text) values ($1,$2,$3)", clip.Id, clip.UserId, clip.Text)
+	tx, err := repo.Begin(ctx, d.db)
 	if err != nil {
-		return fmt.Errorf("query insert err: %w", err)
+		return err
 	}
-	return nil
+
+	rows, err := tx.Exec("insert into CLIPBOARDS (id,user_id,text) values ($1,$2,$3)", clip.Id, clip.UserId, clip.Text)
+	if err != nil {
+		return fmt.Errorf("error inserting into clipboards: %w", err)
+	}
+
+	c, err := rows.RowsAffected()
+	if err != nil {
+		return repo.Rollback(tx, err)
+	}
+	if c != 1 {
+		return repo.Rollback(tx, repo.UnexpectedRows(c))
+	}
+
+	return tx.Commit()
 }
 
 func (d *RepoDbClipboard) GetAll(ctx context.Context) ([]model.Clipboard, error) {
@@ -51,6 +65,7 @@ func (d *RepoDbClipboard) GetById(ctx context.Context, id string) (model.Clipboa
 	if err != nil {
 		return model.Clipboard{}, fmt.Errorf("query select err: %w", err)
 	}
+
 	// var clipID int = -1
 	var clipboard model.Clipboard
 	for rows.Next() {
@@ -68,33 +83,28 @@ func (d *RepoDbClipboard) GetById(ctx context.Context, id string) (model.Clipboa
 }
 
 func (d *RepoDbClipboard) Update(ctx context.Context, id string, newText string) error {
-	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	tx, err := repo.Begin(ctx, d.db)
 	if err != nil {
 		return err
 	}
 
-	result, err := tx.ExecContext(ctx, "update CLIPBOARDS c set text = ($1) where c.id = ($2)", newText, id)
+	result, err := tx.Exec("update CLIPBOARDS c set text = ($1) where c.id = ($2)", newText, id)
 	if err != nil {
 		return fmt.Errorf("query update err: %w", err)
 	}
 
 	c, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("rowsaffected err: %w", err)
+		return repo.Rollback(tx, err)
 	}
 
 	if c != 1 {
-		err := tx.Rollback()
-		if err != nil {
-			return fmt.Errorf("failed to rollback:%w", err)
-		}
-
-		return fmt.Errorf("unexpected rows: %d", c)
+		return repo.Rollback(tx, repo.UnexpectedRows(c))
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("failed to commid 'tx': %w", err)
+		return fmt.Errorf("failed to commit 'tx': %w", err)
 	}
 
 	return nil
@@ -112,7 +122,7 @@ func (d *RepoDbClipboard) Delete(ctx context.Context, id string) error {
 
 	c, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("rowsaffected err: %w", err)
+		return fmt.Errorf("rowsaffected delete clipboards err: %w", err)
 	}
 
 	if c != 1 {
@@ -122,7 +132,7 @@ func (d *RepoDbClipboard) Delete(ctx context.Context, id string) error {
 
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("failed to commid 'tx': %w", err)
+		return fmt.Errorf("failed to commit 'tx': %w", err)
 	}
 
 	return nil

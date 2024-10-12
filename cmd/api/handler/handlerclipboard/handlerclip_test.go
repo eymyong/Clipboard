@@ -30,7 +30,7 @@ func flush(rd *redis.Client) {
 func mockRegisterRoutesClipboardAPI(rd *redis.Client) *mux.Router {
 
 	repo := redisclipboard.New(rd)
-	handlerClipboard := handlerclipboard.NewClipboard(repo, nil) //
+	handlerClipboard := handlerclipboard.NewClipboard(repo) //
 
 	r := mux.NewRouter()
 	routerClip := r.PathPrefix("/clipboards").Subrouter()
@@ -373,7 +373,7 @@ func Test_GetClipByIDHappy0(t *testing.T) {
 	flush(rd)
 
 	repo := redisclipboard.New(rd)
-	handlerClipboard := handlerclipboard.NewClipboard(repo, nil)
+	handlerClipboard := handlerclipboard.NewClipboard(repo)
 
 	r := mux.NewRouter()
 	routerClip := r.PathPrefix("/clipboards").Subrouter()

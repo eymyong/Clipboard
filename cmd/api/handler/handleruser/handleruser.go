@@ -3,6 +3,7 @@ package handleruser
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -12,6 +13,10 @@ import (
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/model"
 	"github.com/eymyong/drop/repo"
+)
+
+const (
+	Database = "DB"
 )
 
 type HandlerUser struct {
@@ -98,6 +103,7 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+
 	_, err = h.repoUser.Create(ctx, user)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
@@ -140,6 +146,12 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type tokenJWT struct {
+		token string
+		exp   time.Time
+	}
+
+	var newTokenJwt tokenJWT
 	ctx := r.Context()
 	passwordBase64, err := h.repoUser.GetPassword(ctx, req.Username)
 	if err != nil {
@@ -183,18 +195,43 @@ func (h *HandlerUser) Login(w http.ResponseWriter, r *http.Request) {
 			"error":  "failed to create login token",
 			"reason": err.Error(),
 		})
+
+		return
+	}
+
+	newTokenJwt = tokenJWT{
+		token: token,
+		exp:   exp,
 	}
 
 	apiutils.SendJson(w, http.StatusOK, map[string]interface{}{
 		"success":  "ok",
 		"username": req.Username,
-		"token":    token,
-		"exp":      exp,
+		"token":    newTokenJwt.token,
+		"exp":      newTokenJwt.exp,
 	})
 }
 
 func (h *HandlerUser) GetUserById(w http.ResponseWriter, r *http.Request) {
-	apiutils.SendJson(w, 500, "not implemented")
+	vars := mux.Vars(r)
+	id := vars["user-id"]
+	if id == "" {
+		apiutils.SendJson(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "missing id",
+		})
+		return
+	}
+
+	ctx := r.Context()
+	user, err := h.repoUser.GetById(ctx, id)
+	if err != nil {
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to get id",
+		})
+		return
+	}
+
+	apiutils.SendJson(w, http.StatusOK, user)
 }
 
 func (h *HandlerUser) UpdateUsername(w http.ResponseWriter, r *http.Request) {

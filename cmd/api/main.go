@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/eymyong/drop/cmd/api/config"
 	"github.com/eymyong/drop/cmd/api/handler/auth"
@@ -12,11 +13,11 @@ import (
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/repo"
 	"github.com/eymyong/drop/repo/dbclipboard"
+	"github.com/eymyong/drop/repo/dbuser"
 	"github.com/eymyong/drop/repo/redisclipboard"
 	"github.com/eymyong/drop/repo/redisuser"
 	"github.com/gorilla/mux"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/jmoiron/sqlx"
 )
 
 func main() {
@@ -25,35 +26,40 @@ func main() {
 
 	fmt.Println("conf:", conf)
 
-	rd := repo.NewRedis(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDb)
-
 	confDB := config.DataSourceName(conf.DbHost, conf.DbPort, conf.DbUser, conf.DbName)
-	fmt.Println("confD", confDB)
 
-	db, err := sqlx.Connect("pgx", "host=167.179.66.149 port=5469 user=postgres dbname=yongdb")
-	if err != nil {
-		panic(err)
+	var (
+		repoClip repo.RepositoryClipboard
+		repoUser repo.RepositoryUser
+	)
+
+	switch os.Getenv("DATABASE") {
+	case "redis":
+		rd := repo.NewRedis(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDb)
+
+		repoClip = redisclipboard.New(rd)
+		repoUser = redisuser.New(rd)
+
+	default:
+		db, err := repo.NewDb(conf.DriverName, confDB)
+		if err != nil {
+			panic(err)
+		}
+
+		repoClip = dbclipboard.New(db)
+		repoUser = dbuser.New(db)
 	}
-
-	// db, err := repo.NewDb("pgx", "host=167.179.66.149 port=5469 user=postgres dbname=yongdb")
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	repoDB := dbclipboard.New(db)
-	repoClip := redisclipboard.New(rd)
-	repoUser := redisuser.New(rd)
 
 	servicePassword := service.NewServicePassword(conf.SecretAES)
 	authenticator := auth.New(conf.SecretJWT)
 
 	// handlerClipDB := handlerclipboard.NewClipboard(repoDB)
-	handlerClip := handlerclipboard.NewClipboard(repoClip, repoDB)
+	handlerClip := handlerclipboard.NewClipboard(repoClip)
 	handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
 
 	r := newServer(handlerUser, handlerClip, authenticator)
 
-	err = http.ListenAndServe(":8000", r)
+	err := http.ListenAndServe(":8000", r)
 	if err != nil {
 		log.Println("server error:", err)
 	}
