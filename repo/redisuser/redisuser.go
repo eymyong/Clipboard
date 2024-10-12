@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
@@ -26,13 +25,6 @@ type RepoRedisUser struct {
 
 func userKey(id string) string {
 	return keyRedisUsers + ":" + id
-}
-
-// "users:yong"
-func keyToName(key string) string {
-	word := strings.Split(key, ":")
-
-	return word[1]
 }
 
 func New(rd *redis.Client) repo.RepositoryUser {

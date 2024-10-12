@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gorilla/mux"
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"github.com/eymyong/drop/cmd/api/config"
 	"github.com/eymyong/drop/cmd/api/handler/auth"
 	"github.com/eymyong/drop/cmd/api/handler/handlerclipboard"
@@ -16,8 +19,6 @@ import (
 	"github.com/eymyong/drop/repo/dbuser"
 	"github.com/eymyong/drop/repo/redisclipboard"
 	"github.com/eymyong/drop/repo/redisuser"
-	"github.com/gorilla/mux"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {

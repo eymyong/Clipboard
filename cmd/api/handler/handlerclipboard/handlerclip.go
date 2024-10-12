@@ -86,8 +86,15 @@ func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
 
 func (h *HandlerClipboard) GetAllClips(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
+	userId := auth.GetUserIdFromHeader(r.Header)
+	if userId == "" {
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to get userId",
+		})
+		return
+	}
 
-	clipboards, err := h.repoClipboard.GetAll(ctx)
+	clipboards, err := h.repoClipboard.GetAllUserClipboards(ctx, userId)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error":  "failed to get all todos",
