@@ -23,17 +23,20 @@ type HandlerUser struct {
 	repoUser        repo.RepositoryUser
 	servicePassword service.Password
 	authenticator   auth.Authenticator
+	serviceUser     service.User
 }
 
 func NewUser(
 	repoUser repo.RepositoryUser,
 	servicePassword service.Password,
 	authenticator auth.Authenticator,
+	serviceUser service.User,
 ) *HandlerUser {
 	return &HandlerUser{
 		repoUser:        repoUser,
 		servicePassword: servicePassword,
 		authenticator:   authenticator,
+		serviceUser:     serviceUser,
 	}
 }
 
@@ -42,9 +45,27 @@ func RegisterUserAPI(r *mux.Router, h *HandlerUser) {
 	r.HandleFunc("/update/username/{user-id}", h.UpdateUsername).Methods(http.MethodPatch)
 	r.HandleFunc("/update/password/{user-id}", h.UpdatePassword).Methods(http.MethodPatch)
 	r.HandleFunc("/delete/{user-id}", h.DeleteUser).Methods(http.MethodDelete)
+	r.HandleFunc("/logout", h.UserLogout).Methods(http.MethodPost)
 }
 
-// TODO ถ้ามี username แล้วจะ register ไม่ได้ //
+// todo เอา EXP ออกมาเพื่อส่งต่อให้ repo ยังไม่ได้
+func (h *HandlerUser) UserLogout(w http.ResponseWriter, r *http.Request) {
+	token := auth.GetUserTokenFromHeader(r.Header)
+	exp := 0 //
+	// r.Header.Get()
+	ctx := r.Context()
+
+	err := h.serviceUser.Logout(ctx, token, exp) //
+	if err != nil {
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to user logout",
+			"reson": err.Error(),
+		})
+	}
+
+	apiutils.SendJson(w, http.StatusOK, map[string]interface{}{})
+}
+
 func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 	type requestRegister struct {
 		Username string `json:"username"`
@@ -103,7 +124,6 @@ func (h *HandlerUser) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-
 	_, err = h.repoUser.Create(ctx, user)
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{

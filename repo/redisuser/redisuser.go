@@ -31,20 +31,8 @@ func New(rd *redis.Client) repo.RepositoryUser {
 	return &RepoRedisUser{rd: rd}
 }
 
-func (r *RepoRedisUser) UpdateUsername(ctx context.Context, id string, newUsername string) error {
-	return errors.New("not implemented: updateUsername")
-}
-
-func (r *RepoRedisUser) UpdatePassword(ctx context.Context, id string, newPassword string) error {
-	return errors.New("not implemented: updatePassword")
-}
-
-func (r *RepoRedisUser) Delete(ctx context.Context, id string) error {
-	return errors.New("not implemented: deleteUser")
-}
-
 func (r *RepoRedisUser) Create(ctx context.Context, user model.User) (model.User, error) {
-	dup, err := r.duplicateUserId(ctx, user.Id)
+	dup, err := r.DuplicateUserId(ctx, user.Id)
 	if err != nil {
 		return model.User{}, errors.Wrap(err, "failed to check for duplicate user id")
 	}
@@ -53,7 +41,7 @@ func (r *RepoRedisUser) Create(ctx context.Context, user model.User) (model.User
 		return model.User{}, errors.New("the new user id is already taken")
 	}
 
-	dup, err = r.duplicateUsername(ctx, user.Username)
+	dup, err = r.DuplicateUsername(ctx, user.Username)
 	if err != nil {
 		return model.User{}, errors.Wrapf(err, "failed to check forr duplicate username '%s'", user.Username)
 	}
@@ -133,7 +121,7 @@ func (r *RepoRedisUser) GetUserId(ctx context.Context, username string) (string,
 	return id, nil
 }
 
-func (r *RepoRedisUser) duplicateUserId(ctx context.Context, id string) (bool, error) {
+func (r *RepoRedisUser) DuplicateUserId(ctx context.Context, id string) (bool, error) {
 	key := userKey(id)
 	count, err := r.rd.Exists(ctx, key).Result()
 	if err != nil {
@@ -143,11 +131,23 @@ func (r *RepoRedisUser) duplicateUserId(ctx context.Context, id string) (bool, e
 	return count > 0, nil
 }
 
-func (r *RepoRedisUser) duplicateUsername(ctx context.Context, username string) (bool, error) {
+func (r *RepoRedisUser) DuplicateUsername(ctx context.Context, username string) (bool, error) {
 	exists, err := r.rd.HExists(ctx, mapUsernamePassword, username).Result()
 	if err != nil {
 		return false, fmt.Errorf("hgetall redis err: %w", err)
 	}
 
 	return exists, nil
+}
+
+func (r *RepoRedisUser) UpdateUsername(ctx context.Context, id string, newUsername string) error {
+	return errors.New("not implemented: updateUsername")
+}
+
+func (r *RepoRedisUser) UpdatePassword(ctx context.Context, id string, newPassword string) error {
+	return errors.New("not implemented: updatePassword")
+}
+
+func (r *RepoRedisUser) Delete(ctx context.Context, id string) error {
+	return errors.New("not implemented: deleteUser")
 }

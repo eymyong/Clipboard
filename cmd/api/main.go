@@ -15,6 +15,7 @@ import (
 	"github.com/eymyong/drop/cmd/api/handler/handleruser"
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/repo"
+	"github.com/eymyong/drop/repo/cache"
 	"github.com/eymyong/drop/repo/dbclipboard"
 	"github.com/eymyong/drop/repo/dbuser"
 	"github.com/eymyong/drop/repo/redisclipboard"
@@ -34,33 +35,41 @@ func main() {
 		repoUser repo.RepositoryUser
 	)
 
+	rd := repo.NewRedis(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDb)
+	db, err := repo.NewDb(conf.DriverName, confDB)
+	if err != nil {
+		panic(err)
+	}
+
 	switch os.Getenv("DATABASE") {
 	case "redis":
-		rd := repo.NewRedis(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDb)
+		// rd := repo.NewRedis(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDb)
 
 		repoClip = redisclipboard.New(rd)
 		repoUser = redisuser.New(rd)
 
 	default:
-		db, err := repo.NewDb(conf.DriverName, confDB)
-		if err != nil {
-			panic(err)
-		}
+		// db, err := repo.NewDb(conf.DriverName, confDB)
+		// if err != nil {
+		// 	panic(err)
+		// }
 
 		repoClip = dbclipboard.New(db)
 		repoUser = dbuser.New(db)
 	}
 
+	repoCache := cache.New(rd)
+	serviceUser := service.NewServiceUser(repoCache)
+
 	servicePassword := service.NewServicePassword(conf.SecretAES)
 	authenticator := auth.New(conf.SecretJWT)
 
-	// handlerClipDB := handlerclipboard.NewClipboard(repoDB)
 	handlerClip := handlerclipboard.NewClipboard(repoClip)
-	handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator)
+	handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator, serviceUser)
 
 	r := newServer(handlerUser, handlerClip, authenticator)
 
-	err := http.ListenAndServe(":8000", r)
+	err = http.ListenAndServe(":8000", r)
 	if err != nil {
 		log.Println("server error:", err)
 	}

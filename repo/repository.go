@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"time"
 
 	"github.com/eymyong/drop/model"
 )
@@ -28,4 +29,8 @@ type RepositoryUser interface {
 	UpdateUsername(ctx context.Context, id string, newUsername string) error
 	UpdatePassword(ctx context.Context, id string, newPassword string) error
 	Delete(ctx context.Context, id string) error
+}
+
+type RepositoryCaching interface {
+	Create(ctx context.Context, key string, value string, exp time.Duration) error
 }

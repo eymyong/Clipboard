@@ -8,14 +8,16 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/eymyong/drop/repo/cache"
 
 	"github.com/pkg/errors"
 )
 
 const (
-	httpHeaderUserId = "jwt-clipboard-user-id"
-	httpHeaderIss    = "jwt-clipboard-issuer"
-	httpHeaderExp    = "jwt-clipboard-expiry"
+	httpHeaderUserId    = "jwt-clipboard-user-id"
+	httpHeaderIss       = "jwt-clipboard-issuer"
+	httpHeaderExp       = "jwt-clipboard-expiry"
+	httpHeaderUserToken = "jwt-clipboard-user-token"
 )
 
 type Authenticator interface {
@@ -23,7 +25,8 @@ type Authenticator interface {
 }
 
 type AuthenticatorJWT struct {
-	secretKey string
+	secretKey   string
+	repoCaching cache.RepoCache
 }
 
 func New(secretKey string) *AuthenticatorJWT {
@@ -40,6 +43,14 @@ func GetUserIssFromHeader(h http.Header) string {
 	return h.Get(httpHeaderIss)
 }
 
+func GetUserTokenFromHeader(h http.Header) string {
+	return h.Get(httpHeaderUserToken)
+}
+
+// func GetUserExpFromHeader(h http.Header) float64 {
+// 	return h.Get(httpHeaderExp)
+// }
+
 // For jwt embedded in request header
 func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +66,21 @@ func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler 
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("error verifying JWT token: " + err.Error()))
+			return
+		}
+
+		//todo check blacklist token
+		ctx := r.Context()
+		bl, err := a.repoCaching.BlacklistToken(ctx, tokenStr)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("error verifying blacklist token: " + err.Error()))
+			return
+		}
+
+		if bl != 0 {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Printf("error token has expired")
 			return
 		}
 
@@ -86,6 +112,7 @@ func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler 
 			return
 		}
 
+		r.Header.Set(httpHeaderUserToken, tokenStr)
 		r.Header.Set(httpHeaderUserId, id)
 		r.Header.Set(httpHeaderIss, iss)
 		r.Header.Set(httpHeaderExp, fmt.Sprintf("%f", exp))
@@ -129,3 +156,14 @@ func ExtractClaims(tokenStr string, key []byte) (jwt.Claims, error) {
 
 	return token.Claims, nil
 }
+
+// func (repo *RepoCache) BlacklistToken(ctx context.Context, tokenStr string) (int64, error) {
+
+// 	blacklist, err := repo.rd.Exists(ctx, tokenStr).Result()
+// 	if err != nil {
+// 		return 0, fmt.Errorf("exists err: %w", err)
+// 	}
+
+// 	return blacklist, nil
+
+// }
