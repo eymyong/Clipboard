@@ -10,26 +10,29 @@ import (
 
 type User interface {
 	Logout(ctx context.Context, token string, tokenExp int) error
+	Blacklisted(ctx context.Context, token string) (bool, error)
 }
 
 type UserImpl struct {
-	repoCache repo.RepositoryCaching
+	repoBlacklist repo.RepositoryBlacklist
 }
 
-func NewServiceUser(repoCache repo.RepositoryCaching) *UserImpl {
+func NewServiceUser(repoCache repo.RepositoryBlacklist) *UserImpl {
 	return &UserImpl{
-		repoCache: repoCache,
+		repoBlacklist: repoCache,
 	}
 }
 
 func (us *UserImpl) Logout(ctx context.Context, token string, tokenExp int) error {
+	fmt.Println("logout token", token)
 	key := token
 	now := time.Now()
 	exp := time.Unix(int64(tokenExp), 0).Add(2 * time.Minute)
 	dur := exp.Sub(now)
-	ttl := dur.Seconds()
 
-	err := us.repoCache.Create(ctx, key, now.String(), time.Duration(ttl))
+	fmt.Println("dur", dur.String())
+
+	err := us.repoBlacklist.Create(ctx, key, now.String(), dur)
 	if err != nil {
 		return fmt.Errorf("create cache err: %w", err)
 	}
@@ -37,9 +40,6 @@ func (us *UserImpl) Logout(ctx context.Context, token string, tokenExp int) erro
 	return nil
 }
 
-// func f(a, b time.Time) int64 {
-// 	au := a.Unix()
-// 	bu := b.Unix()
-
-// 	return bu - au
-// }
+func (us *UserImpl) Blacklisted(ctx context.Context, token string) (bool, error) {
+	return us.repoBlacklist.IsBlacklisted(ctx, token)
+}

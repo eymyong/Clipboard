@@ -31,6 +31,7 @@ type RepositoryUser interface {
 	Delete(ctx context.Context, id string) error
 }
 
-type RepositoryCaching interface {
+type RepositoryBlacklist interface {
 	Create(ctx context.Context, key string, value string, exp time.Duration) error
+	IsBlacklisted(ctx context.Context, tokenStr string) (bool, error)
 }

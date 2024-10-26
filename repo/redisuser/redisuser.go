@@ -141,7 +141,23 @@ func (r *RepoRedisUser) DuplicateUsername(ctx context.Context, username string) 
 }
 
 func (r *RepoRedisUser) UpdateUsername(ctx context.Context, id string, newUsername string) error {
-	return errors.New("not implemented: updateUsername")
+	key := userKey(id)
+	oldUser, err := r.GetById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	err = r.rd.HSet(ctx, key, map[string]interface{}{
+		"id":       oldUser.Id,
+		"username": oldUser.Username,
+		"password": oldUser.Password,
+	}).Err()
+
+	if err != nil {
+		return fmt.Errorf("hset redis err: %w", err)
+	}
+
+	return nil
 }
 
 func (r *RepoRedisUser) UpdatePassword(ctx context.Context, id string, newPassword string) error {

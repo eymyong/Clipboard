@@ -3,6 +3,7 @@ package handleruser
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,12 +51,18 @@ func RegisterUserAPI(r *mux.Router, h *HandlerUser) {
 
 // todo เอา EXP ออกมาเพื่อส่งต่อให้ repo ยังไม่ได้
 func (h *HandlerUser) UserLogout(w http.ResponseWriter, r *http.Request) {
-	token := auth.GetUserTokenFromHeader(r.Header)
-	exp := 0 //
-	// r.Header.Get()
 	ctx := r.Context()
+	token := auth.GetUserTokenFromHeader(r.Header)
+	exp := auth.GetUserExpFromHeader(r.Header)
+	expFloat, err := strconv.ParseFloat(exp, 64)
+	if err != nil {
+		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "failed to user logout",
+			"reson": err.Error(),
+		})
+	}
 
-	err := h.serviceUser.Logout(ctx, token, exp) //
+	err = h.serviceUser.Logout(ctx, token, int(expFloat))
 	if err != nil {
 		apiutils.SendJson(w, http.StatusInternalServerError, map[string]interface{}{
 			"error": "failed to user logout",
@@ -255,6 +262,7 @@ func (h *HandlerUser) GetUserById(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HandlerUser) UpdateUsername(w http.ResponseWriter, r *http.Request) {
+
 	apiutils.SendJson(w, 500, "not implemented")
 }
 

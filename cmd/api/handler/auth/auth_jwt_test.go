@@ -98,7 +98,7 @@ func Test_AuthMiddlewareHeaderHappy(t *testing.T) {
 	testSecret := "test-secret"
 	testIss := "test-iss"
 	testUserId := "test-user-id"
-	authenticator := auth.New(testSecret)
+	authenticator := auth.New(testSecret, nil)
 
 	//
 	handler := func(w http.ResponseWriter, r *http.Request) {
@@ -159,8 +159,8 @@ func Test_AuthMiddlewareHeaderTokenErr(t *testing.T) {
 	testSecret2 := "test"
 	testIss := "test-iss"
 	testUserId := "test-user-id"
-	authenticator := auth.New(testSecret)   // T
-	authenticator2 := auth.New(testSecret2) // F
+	authenticator := auth.New(testSecret, nil)   // T
+	authenticator2 := auth.New(testSecret2, nil) // F
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		userID := auth.GetUserIdFromHeader(r.Header)
@@ -209,7 +209,7 @@ func Test_AuthMiddlewareHeaderTokenErr(t *testing.T) {
 
 func Test_AuthMiddlewareHeaderInvalidToken(t *testing.T) {
 	testSecret := "test-secert"
-	authenticator := auth.New(testSecret)
+	authenticator := auth.New(testSecret, nil)
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		apiutils.SendJson(w, http.StatusOK, "ok")

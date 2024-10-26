@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -15,7 +14,7 @@ import (
 	"github.com/eymyong/drop/cmd/api/handler/handleruser"
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/repo"
-	"github.com/eymyong/drop/repo/cache"
+	"github.com/eymyong/drop/repo/blacklist"
 	"github.com/eymyong/drop/repo/dbclipboard"
 	"github.com/eymyong/drop/repo/dbuser"
 	"github.com/eymyong/drop/repo/redisclipboard"
@@ -26,13 +25,14 @@ func main() {
 	fileName := "config.json"
 	conf := config.ReadJson(fileName)
 
-	fmt.Println("conf:", conf)
+	// fmt.Println("conf:", conf)
 
 	confDB := config.DataSourceName(conf.DbHost, conf.DbPort, conf.DbUser, conf.DbName)
 
 	var (
 		repoClip repo.RepositoryClipboard
 		repoUser repo.RepositoryUser
+		// repoC    repo.RepositoryUserCaching
 	)
 
 	rd := repo.NewRedis(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDb)
@@ -43,26 +43,19 @@ func main() {
 
 	switch os.Getenv("DATABASE") {
 	case "redis":
-		// rd := repo.NewRedis(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDb)
-
 		repoClip = redisclipboard.New(rd)
 		repoUser = redisuser.New(rd)
 
 	default:
-		// db, err := repo.NewDb(conf.DriverName, confDB)
-		// if err != nil {
-		// 	panic(err)
-		// }
-
 		repoClip = dbclipboard.New(db)
 		repoUser = dbuser.New(db)
 	}
 
-	repoCache := cache.New(rd)
-	serviceUser := service.NewServiceUser(repoCache)
+	repoBlacklist := blacklist.New(rd)
+	serviceUser := service.NewServiceUser(repoBlacklist)
 
 	servicePassword := service.NewServicePassword(conf.SecretAES)
-	authenticator := auth.New(conf.SecretJWT)
+	authenticator := auth.New(conf.SecretJWT, serviceUser)
 
 	handlerClip := handlerclipboard.NewClipboard(repoClip)
 	handlerUser := handleruser.NewUser(repoUser, servicePassword, authenticator, serviceUser)

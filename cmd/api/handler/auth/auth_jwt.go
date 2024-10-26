@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/eymyong/drop/repo/cache"
+	"github.com/eymyong/drop/cmd/api/service"
 
 	"github.com/pkg/errors"
 )
@@ -26,12 +26,13 @@ type Authenticator interface {
 
 type AuthenticatorJWT struct {
 	secretKey   string
-	repoCaching cache.RepoCache
+	serviceUser service.User
 }
 
-func New(secretKey string) *AuthenticatorJWT {
+func New(secretKey string, serviceUser service.User) *AuthenticatorJWT {
 	return &AuthenticatorJWT{
-		secretKey: secretKey,
+		secretKey:   secretKey,
+		serviceUser: serviceUser,
 	}
 }
 
@@ -47,9 +48,9 @@ func GetUserTokenFromHeader(h http.Header) string {
 	return h.Get(httpHeaderUserToken)
 }
 
-// func GetUserExpFromHeader(h http.Header) float64 {
-// 	return h.Get(httpHeaderExp)
-// }
+func GetUserExpFromHeader(h http.Header) string {
+	return h.Get(httpHeaderExp)
+}
 
 // For jwt embedded in request header
 func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler {
@@ -71,16 +72,16 @@ func (a *AuthenticatorJWT) AuthMiddlewareHeader(next http.Handler) http.Handler 
 
 		//todo check blacklist token
 		ctx := r.Context()
-		bl, err := a.repoCaching.BlacklistToken(ctx, tokenStr)
+		blacklisted, err := a.serviceUser.Blacklisted(ctx, tokenStr)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("error verifying blacklist token: " + err.Error()))
 			return
 		}
 
-		if bl != 0 {
+		if blacklisted {
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Printf("error token has expired")
+			w.Write([]byte("token is blacklisted"))
 			return
 		}
 
