@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	RedisAddr     string `json:"redisaddr"`
-	RedisDb       int    `json:"redisdb"`
-	RedisUsername string `json:"redisusername"`
-	RedisPassword string `json:"redispassword"`
+	RedisAddr      string `json:"redisaddr"`
+	RedisDb        int    `json:"redisdb"`
+	RedisDbCaching int    `json:"redisdbcaching"`
+	RedisUsername  string `json:"redisusername"`
+	RedisPassword  string `json:"redispassword"`
 	// For encrypting password
 	SecretAES string
 	// For signing JWT
@@ -41,17 +42,18 @@ func ReadJson(fileName string) Config {
 	}
 
 	return Config{
-		RedisAddr:     env.RedisAddr,
-		RedisDb:       env.RedisDb,
-		RedisUsername: env.RedisUsername,
-		RedisPassword: env.RedisPassword,
-		SecretAES:     secretAes,
-		SecretJWT:     secretJwt,
-		DbHost:        env.DbHost,
-		DbPort:        env.DbPort,
-		DbUser:        env.DbUser,
-		DbName:        env.DbName,
-		DriverName:    env.DriverName,
+		RedisAddr:      env.RedisAddr,
+		RedisDb:        env.RedisDb,
+		RedisDbCaching: env.RedisDbCaching,
+		RedisUsername:  env.RedisUsername,
+		RedisPassword:  env.RedisPassword,
+		SecretAES:      secretAes,
+		SecretJWT:      secretJwt,
+		DbHost:         env.DbHost,
+		DbPort:         env.DbPort,
+		DbUser:         env.DbUser,
+		DbName:         env.DbName,
+		DriverName:     env.DriverName,
 	}
 }
 

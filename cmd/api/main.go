@@ -15,6 +15,7 @@ import (
 	"github.com/eymyong/drop/cmd/api/service"
 	"github.com/eymyong/drop/repo"
 	"github.com/eymyong/drop/repo/blacklist"
+	"github.com/eymyong/drop/repo/caching"
 	"github.com/eymyong/drop/repo/dbclipboard"
 	"github.com/eymyong/drop/repo/dbuser"
 	"github.com/eymyong/drop/repo/redisclipboard"
@@ -32,7 +33,6 @@ func main() {
 	var (
 		repoClip repo.RepositoryClipboard
 		repoUser repo.RepositoryUser
-		// repoC    repo.RepositoryUserCaching
 	)
 
 	rd := repo.NewRedis(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDb)
@@ -41,10 +41,14 @@ func main() {
 		panic(err)
 	}
 
+	cache := caching.NewRedisCaching(conf.RedisAddr, conf.RedisUsername, conf.RedisPassword, conf.RedisDbCaching)
+
 	switch os.Getenv("DATABASE") {
 	case "redis":
 		repoClip = redisclipboard.New(rd)
 		repoUser = redisuser.New(rd)
+	case "cach":
+		repoClip = caching.NewRepoCachingClipboard(cache, repoClip)
 
 	default:
 		repoClip = dbclipboard.New(db)
