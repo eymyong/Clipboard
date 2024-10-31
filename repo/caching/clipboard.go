@@ -21,8 +21,8 @@ func KeyCachingID(id string) string {
 
 type RepoCache interface {
 	Sync(ctx context.Context, id string, clip model.Clipboard) error
-	GetCaching(ctx context.Context, id string) (model.Clipboard, error)
-	DeleteCaching(ctx context.Context, id string) error
+	GetCaching(ctx context.Context, key string) (model.Clipboard, error)
+	DeleteCaching(ctx context.Context, key string) error
 	//
 	GetAllCaching(ctx context.Context) ([]model.Clipboard, error)
 	DeleteCachingAll(ctx context.Context) error
@@ -69,14 +69,9 @@ func (repo *RepoCacheImpl) GetAllCaching(ctx context.Context) ([]model.Clipboard
 
 	var clipboards []model.Clipboard
 	for _, v := range keyCacheing {
-		valueStr, err := repo.rd.Get(ctx, v).Result()
+		clip, err := repo.GetCaching(ctx, v)
 		if err != nil {
-			return []model.Clipboard{}, fmt.Errorf("get redis err: %w", err)
-		}
-		var clip model.Clipboard
-		err = json.Unmarshal([]byte(valueStr), &clip)
-		if err != nil {
-			return []model.Clipboard{}, fmt.Errorf("unmarshal clip err: %w", err)
+			return []model.Clipboard{}, fmt.Errorf("get caching err: %w", err)
 		}
 		clipboards = append(clipboards, clip)
 	}
@@ -84,10 +79,9 @@ func (repo *RepoCacheImpl) GetAllCaching(ctx context.Context) ([]model.Clipboard
 	return clipboards, nil
 }
 
-// key = id
-func (repo *RepoCacheImpl) GetCaching(ctx context.Context, id string) (model.Clipboard, error) {
-	keyCache := KeyCachingID(id)
-	clipStr, err := repo.rd.Get(ctx, keyCache).Result()
+// key ="caching-id:" + id
+func (repo *RepoCacheImpl) GetCaching(ctx context.Context, key string) (model.Clipboard, error) {
+	clipStr, err := repo.rd.Get(ctx, key).Result()
 	if err != nil {
 		return model.Clipboard{}, fmt.Errorf("get redis err: %w", err)
 	}
@@ -101,9 +95,8 @@ func (repo *RepoCacheImpl) GetCaching(ctx context.Context, id string) (model.Cli
 	return clipboard, nil
 }
 
-func (repo *RepoCacheImpl) DeleteCaching(ctx context.Context, id string) error {
-	keyCache := KeyCachingID(id)
-	value, err := repo.rd.Del(ctx, keyCache).Result()
+func (repo *RepoCacheImpl) DeleteCaching(ctx context.Context, key string) error {
+	value, err := repo.rd.Del(ctx, key).Result()
 	if err != nil {
 		return fmt.Errorf("delete redis err: %w", err)
 	}
@@ -268,7 +261,7 @@ func (r *RepoCachingClipboard) DeleteAll(ctx context.Context) error {
 	return nil
 }
 
-func (r *RepoCachingClipboard) GetAllUserClipboardsTest(ctx context.Context, userID string) ([]model.Clipboard, error) {
+func (r *RepoCachingClipboard) GetAllUserClipboards(ctx context.Context, userID string) ([]model.Clipboard, error) {
 	// cache
 	clipboards, err := r.cache.GetAllCaching(ctx)
 	if err != nil {
@@ -303,35 +296,6 @@ func (r *RepoCachingClipboard) GetAllUserClipboardsTest(ctx context.Context, use
 	}
 
 	return nil, nil
-
-}
-func (r *RepoCachingClipboard) GetAllUserClipboards(ctx context.Context, userID string) ([]model.Clipboard, error) {
-	// cache
-	keyCache := KeyCachingID(userID)
-	clip, err := r.cache.GetCaching(ctx, KeyCachingID(userID))
-	if err != nil {
-		fmt.Println("cannot get cache", err)
-	}
-	_ = clip
-
-	// if len(clips) > 0 {
-	// 	return clips, nil
-	// }
-
-	//db
-	clips, err := r.db.GetAllUserClipboards(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(clips) > 0 {
-		// concurrent
-		if err := r.cache.Sync(ctx, keyCache, clips[0]); err != nil {
-			fmt.Println("cannot sync cache:", err)
-		}
-	}
-
-	return clips, nil
 
 }
 
@@ -424,96 +388,4 @@ func (r *RepoCachingClipboard) DeleteUserClipboard(ctx context.Context, id strin
 	}
 
 	return nil
-}
-
-func (r *RepoCachingClipboard) GetAllTest(c_tx context.Context, userID string) ([]model.Clipboard, error) {
-
-	return nil, nil
-}
-
-// func (r *RepoCachingClipboard) GetAll(ctx context.Context) ([]model.Clipboard, error) {
-// 	clipboards, err := r.GetAll(ctx)
-// 	if err != nil {
-// 		return []model.Clipboard{}, fmt.Errorf("posgest getall err: %w", err)
-// 	}
-
-// 	usersID := []string{}
-// 	for _, v := range clipboards {
-// 		usersID = append(usersID, v.UserId)
-// 	}
-
-// 	keyCaches := []string{}
-// 	for _, v := range usersID {
-// 		keyCaches = append(keyCaches, KeyCachingUserClip(v))
-// 	}
-
-// 	//a,b,a,d
-// 	// clipByUserID := map[string][]model.Clipboard{}
-// 	// clips := []model.Clipboard{}
-// 	// for _, v := range clipboards {
-// 	// 	keyMap := v.UserId
-// 	// 	if keyMap == v.UserId {
-// 	// 		clips = append(clips, v)
-// 	// 	}
-// 	// 	clipByUserID[keyMap] = clips
-// 	// }
-
-// 	clipByUserID := map[string][]model.Clipboard{}
-// 	clips := []model.Clipboard{}
-// 	for _, v := range clipboards {
-// 		keyMap := v.UserId
-// 		clipByUserID[keyMap] = clips
-// 		if _,ok := clipByUserID[keyMap] {
-// 			clips = append(clips, v)
-// 			clipByUserID[keyMap] = clips
-// 		}
-// 		clips = append(clips, v)
-// 			clipByUserID[keyMap] = clips
-
-// 	}
-
-// 	for _, v := range clipboards {
-// 		if v.UserId == v.UserId {
-
-// 		}
-// 	}
-
-// 	for _, v := range keyCaches {
-// 		err := r.cache.Sync(ctx, v, clipboards)
-// 		if err != nil {
-// 			return []model.Clipboard{}, fmt.Errorf("cannot sync cache: %w", err)
-// 		}
-
-// 	}
-
-// 	return nil, nil
-// }
-
-func (repo *RepoCacheImpl) GetCachingTest(ctx context.Context, key string) ([]model.Clipboard, error) {
-	keysStr, err := repo.rd.Keys(ctx, "caching-user-clipboard: *").Result()
-	if err != nil {
-		return []model.Clipboard{}, fmt.Errorf("keys redis err: %w", err)
-	}
-
-	clipboards := []model.Clipboard{}
-	if len(keysStr) != 0 {
-		for _, v := range keysStr {
-			dataStr, err := repo.rd.Get(ctx, v).Result()
-			if err != nil {
-				return []model.Clipboard{}, fmt.Errorf("get redis err: %w", err)
-			}
-
-			var clipboard model.Clipboard
-			err = json.Unmarshal([]byte(dataStr), &clipboard)
-			if err != nil {
-				return []model.Clipboard{}, fmt.Errorf("unmarshal err: %w", err)
-			}
-
-			clipboards = append(clipboards, clipboard)
-		}
-
-		return clipboards, nil
-	}
-
-	return []model.Clipboard{}, nil
 }
