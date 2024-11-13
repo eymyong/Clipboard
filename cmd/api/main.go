@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -47,9 +48,11 @@ func main() {
 	case "redis":
 		repoClip = redisclipboard.New(rd)
 		repoUser = redisuser.New(rd)
-	case "cach":
+	case "cache":
+		fmt.Println("cache:ok")
+		repoClip = redisclipboard.New(cache)
 		repoClip = caching.NewRepoCachingClipboard(cache, repoClip)
-
+		repoUser = redisuser.New(rd)
 	default:
 		repoClip = dbclipboard.New(db)
 		repoUser = dbuser.New(db)

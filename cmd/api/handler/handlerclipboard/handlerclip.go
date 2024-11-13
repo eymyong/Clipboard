@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -35,6 +36,13 @@ func RegisterRoutesClipboardAPI(r *mux.Router, h *HandlerClipboard) {
 	r.HandleFunc("/update/{clipboard-id}", h.UpdateClipById).Methods(http.MethodPatch)
 	r.HandleFunc("/delete/{clipboard-id}", h.DeleteClip).Methods(http.MethodDelete)
 	r.HandleFunc("/delete-all", h.DeleteAllClip).Methods(http.MethodDelete)
+}
+
+func writeLog(s string) {
+	fmt.Println("start", s)
+	time.Sleep(5 * time.Second)
+	fmt.Println("end", s)
+
 }
 
 func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
@@ -78,10 +86,15 @@ func (h *HandlerClipboard) CreateClip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go func() {
+		writeLog(userId)
+	}()
+
 	apiutils.SendJson(w, http.StatusCreated, map[string]interface{}{
 		"success": "ok",
 		"created": clipboard,
 	})
+
 }
 
 func (h *HandlerClipboard) GetAllClips(w http.ResponseWriter, r *http.Request) {
